@@ -1,4 +1,5 @@
 20JUL2026: Updated RPU to handle REV 3 hardware creditresetbutton boot select. Investigating potential bug regarding handling of reset line in REV 4 hardware.
+
 16JUL2026: Replaced BSOS files with RPU files and updating references, performing cleanup and debug.
 
 ## Mata Hari 2020
