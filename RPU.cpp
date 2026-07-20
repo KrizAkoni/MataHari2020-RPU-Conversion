@@ -468,6 +468,32 @@ byte RPU_DataRead(int address) {
 #error "RPU_OS_HARDWARE_REV 3 requires ATMega2560, check RPU_Config.h and adjust settings"
 #endif
 
+#define RPU_VMA_PIN                   4
+#define RPU_RW_PIN                    5
+#define RPU_PHI2_PIN                  3
+#define RPU_SWITCH_PIN                13
+//#define RPU_BUFFER_DISABLE            5 //No connection on REV 4 board, RW on REV 3?
+#define RPU_HALT_PIN                  14
+#define RPU_RESET_PIN                 31 //No connection on REV 4 board? (D45 on schematic and board, set as D42)
+#define RPU_DIAGNOSTIC_PIN            44
+#define RPU_PINS_OUTPUT true
+#define RPU_PINS_INPUT false
+
+// REVISION 3 HARDWARE
+void RPU_SetAddressPinsDirection(boolean pinsOutput) {
+  for (int count = 0; count < 15; count++) {
+    pinMode(16 + count, pinsOutput ? OUTPUT : INPUT); //A15 not addressed in Rev 3
+  }
+}
+
+// REVISION 3 HARDWARE
+void RPU_SetDataPinsDirection(boolean pinsOutput) {
+  for (int count = 0; count < 7; count++) {
+    pinMode(6 + count, pinsOutput ? OUTPUT : INPUT); //D0-D6  
+  }
+  pinMode(15, pinsOutput ? OUTPUT : INPUT); //D7
+}
+
 // Rev 3
 void RPU_DataWrite(int address, byte data) {
 
@@ -609,9 +635,9 @@ byte RPU_DataRead(int address) {
 #define RPU_RW_PIN                    3
 #define RPU_PHI2_PIN                  39
 #define RPU_SWITCH_PIN                38
-#define RPU_BUFFER_DISABLE            5
+#define RPU_BUFFER_DISABLE            5 //No connection on REV 4 board?
 #define RPU_HALT_PIN                  41
-#define RPU_RESET_PIN                 42
+#define RPU_RESET_PIN                 42 //No connection on REV 4 board? (D45 on schematic and board, set as D42)
 #define RPU_DIAGNOSTIC_PIN            44
 #define RPU_PINS_OUTPUT true
 #define RPU_PINS_INPUT false
@@ -3350,11 +3376,90 @@ unsigned long RPU_InitializeMPUArch1(unsigned long initOptions, byte creditReset
 
 //  if (DEBUG_MESSAGES) Serial.write("* Starting Setup for Rev 3\n");
 
-  if (initOptions & ( RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET | RPU_CMD_BOOT_ORIGINAL_IF_NOT_CREDIT_RESET |
-                      RPU_CMD_AUTODETECT_ARCHITECTURE ) ) {
-    retResult |= RPU_RET_OPTION_NOT_SUPPORTED;
+  //if (initOptions & ( RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET | RPU_CMD_BOOT_ORIGINAL_IF_NOT_CREDIT_RESET |
+  //                  RPU_CMD_AUTODETECT_ARCHITECTURE ) ) {
+  //  retResult |= RPU_RET_OPTION_NOT_SUPPORTED;
+  //}
+//---------------------
+
+ // put the 680X buffers into tri-state
+ // pinMode(RPU_BUFFER_DISABLE, OUTPUT); //No connection on REV 4 board?
+ // digitalWrite(RPU_BUFFER_DISABLE, 1);
+
+// Set /HALT low so the processor doesn't come online
+// (on some hardware, HALT & RESET are combined)
+  pinMode(RPU_HALT_PIN, OUTPUT);
+  digitalWrite(RPU_HALT_PIN, 0);
+  pinMode(RPU_RESET_PIN, OUTPUT); //No connection on REV 4 board? (D45 on schematic and board, set as D42) Use D31 on Rev 3 and jumper to H5pin25
+  digitalWrite(RPU_RESET_PIN, 0);
+
+  // Set VMA, R/W to OUTPUT
+  pinMode(RPU_VMA_PIN, OUTPUT);
+  pinMode(RPU_RW_PIN, OUTPUT);
+  RPU_SetAddressPinsDirection(RPU_PINS_OUTPUT);
+
+  // Set PHI2 depending on processor type (assumes 6800 from config)
+pinMode(RPU_PHI2_PIN, INPUT);
+
+  //delay(1000);
+  delayMicroseconds(50000);
+  //  RPU_DataWrite(ADDRESS_SB100, 0x01);
+  boolean switchStateClosed = false;
+  pinMode(RPU_SWITCH_PIN, INPUT);
+  if (digitalRead(RPU_SWITCH_PIN)) {
+    switchStateClosed = true;
+    retResult |= RPU_RET_SELECTOR_SWITCH_ON;
   }
 
+  boolean creditResetButtonHit = false;
+  if ( creditResetSwitch != 0xFF && (initOptions & (RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET | RPU_CMD_BOOT_ORIGINAL_IF_NOT_CREDIT_RESET))) {
+    // We have to check the credit/reset button to honor the init request
+    creditResetButtonHit = CheckCreditResetSwitchArch1(creditResetSwitch);
+    if (creditResetButtonHit) {
+      retResult |= RPU_RET_CREDIT_RESET_BUTTON_HIT;
+    }
+  }
+
+  boolean bootToOriginal = false;
+  if (  (initOptions & RPU_CMD_BOOT_ORIGINAL) ||
+        (switchStateClosed && (initOptions & RPU_CMD_BOOT_ORIGINAL_IF_SWITCH_CLOSED)) ||
+        (!switchStateClosed && (initOptions & RPU_CMD_BOOT_ORIGINAL_IF_NOT_SWITCH_CLOSED)) ||
+        (creditResetButtonHit && (initOptions & RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET)) ||
+        (!creditResetButtonHit && (initOptions & RPU_CMD_BOOT_ORIGINAL_IF_NOT_CREDIT_RESET)) ) {
+    bootToOriginal = true;
+  }
+
+
+  if (bootToOriginal) {
+    // If the options guide us to original code, boot to original
+    //pinMode(RPU_BUFFER_DISABLE, OUTPUT); // IRQ? //No connection on REV 4 board, RW on REV 3?
+    // Turn on the tri-state buffers
+    //digitalWrite(RPU_BUFFER_DISABLE, 0);
+
+    pinMode(RPU_PHI2_PIN, INPUT); // CLOCK
+    pinMode(RPU_VMA_PIN, INPUT); // VMA
+    pinMode(RPU_RW_PIN, INPUT); // R/W
+
+    // Set all the pins to input so they'll stay out of the way
+    RPU_SetDataPinsDirection(RPU_PINS_INPUT);
+    RPU_SetAddressPinsDirection(RPU_PINS_INPUT);
+
+    // Set /HALT high
+    pinMode(RPU_HALT_PIN, OUTPUT);
+    digitalWrite(RPU_HALT_PIN, 1);
+    pinMode(RPU_RESET_PIN, OUTPUT);
+    digitalWrite(RPU_RESET_PIN, 1);
+
+    retResult |= RPU_RET_ORIGINAL_CODE_REQUESTED;
+    if (!(initOptions & RPU_CMD_INIT_AND_RETURN_EVEN_IF_ORIGINAL_CHOSEN)) while (1); //wait forever (let machine run)
+    else return retResult;
+  }
+
+
+
+
+//--------------------- OLD Switch Test Code -------------------
+/*
   pinMode(13, INPUT);
   boolean switchStateClosed = digitalRead(13) ? false : true;
   boolean bootToOriginal = false;
@@ -3388,18 +3493,19 @@ unsigned long RPU_InitializeMPUArch1(unsigned long initOptions, byte creditReset
     pinMode(14, OUTPUT); // Halt
     digitalWrite(14, LOW);
   }
-
+*/
+//--------------------------------------------------------------------------------
 
 #elif (RPU_OS_HARDWARE_REV==4) || (RPU_OS_HARDWARE_REV>=101)
   // put the 680X buffers into tri-state
-  pinMode(RPU_BUFFER_DISABLE, OUTPUT);
+  pinMode(RPU_BUFFER_DISABLE, OUTPUT); //No connection on REV 4 board?
   digitalWrite(RPU_BUFFER_DISABLE, 1);
 
   // Set /HALT low so the processor doesn't come online
   // (on some hardware, HALT & RESET are combined)
   pinMode(RPU_HALT_PIN, OUTPUT);
   digitalWrite(RPU_HALT_PIN, 0);
-  pinMode(RPU_RESET_PIN, OUTPUT);
+  pinMode(RPU_RESET_PIN, OUTPUT); //No connection on REV 4 board? (D45 on schematic and board, set as D42)
   digitalWrite(RPU_RESET_PIN, 0);
 
   // Set VMA, R/W to OUTPUT
@@ -3485,7 +3591,7 @@ unsigned long RPU_InitializeMPUArch1(unsigned long initOptions, byte creditReset
     digitalWrite(RPU_RESET_PIN, 1);
 
     retResult |= RPU_RET_ORIGINAL_CODE_REQUESTED;
-    if (!(initOptions & RPU_CMD_INIT_AND_RETURN_EVEN_IF_ORIGINAL_CHOSEN)) while (1);
+    if (!(initOptions & RPU_CMD_INIT_AND_RETURN_EVEN_IF_ORIGINAL_CHOSEN)) while (1); //wait forever (let machine run)
     else return retResult;
   }
 

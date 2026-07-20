@@ -22,7 +22,7 @@
 #ifndef RPU_OS_H
 
 #define RPU_OS_MAJOR_VERSION  5
-#define RPU_OS_MINOR_VERSION  13
+#define RPU_OS_MINOR_VERSION  14
 
 struct PlayfieldAndCabinetSwitch {
   byte switchNum;
