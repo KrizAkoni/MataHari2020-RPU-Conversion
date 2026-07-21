@@ -346,7 +346,7 @@ void setup() {
   RPU_SetupGameSwitches(NUM_SWITCHES_WITH_TRIGGERS, NUM_PRIORITY_SWITCHES_WITH_TRIGGERS, TriggeredSwitches);
 
   // Set up the chips and interrupts
-  RPU_InitializeMPU(RPU_CMD_BOOT_ORIGINAL_IF_NOT_CREDIT_RESET | RPU_CMD_BOOT_ORIGINAL_IF_NOT_SWITCH_CLOSED, SW_CREDIT_RESET);
+  RPU_InitializeMPU(RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET | RPU_CMD_BOOT_ORIGINAL_IF_NOT_SWITCH_CLOSED, SW_CREDIT_RESET);
   RPU_DisableSolenoidStack();
   RPU_SetDisableFlippers(true);
 
@@ -1265,13 +1265,13 @@ void PlaySoundEffect(byte soundEffectNum) {
   }
 #endif
 
-#ifdef USE_CHIMES
+//#ifdef USE_CHIMES
   // If the user selects electronic sounds, don't do chimes
-  if (MusicLevel > 3) return;
+//  if (MusicLevel > 3) return;
 
 
-  unsigned long count;
-
+//  unsigned long count;
+/*
   switch (soundEffectNum) {
     case SOUND_EFFECT_ADD_PLAYER:
       RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime, true);
@@ -1389,14 +1389,14 @@ void PlaySoundEffect(byte soundEffectNum) {
     break;
   }    
     
-
+*/
 
 /*
  *  This version of chimes (currently commented out) 
  *  moves the chime callouts from "storage space" to "dynamic memory"
  *  in order to free up space for more code. 
  *  I'm not using it for now because it's harder to setup/debug.
- *  
+ * 
   // Music level 3 = allow melodies to overlap
   if (CurrentTime > NextSoundEffectTime || MusicLevel == 3) {
     NextSoundEffectTime = CurrentTime;
@@ -1435,11 +1435,67 @@ void PlaySoundEffect(byte soundEffectNum) {
       }
     }
   }
-*/  
+  
 
 #endif
 
+}*/
+
+#ifdef USE_CHIMES
+  // If the user selects electronic sounds, don't do chimes
+  if (MusicLevel>3) return;
+
+  // Music level 3 = allow melodies to overlap
+  if (CurrentTime>NextSoundEffectTime || MusicLevel==3) {
+    NextSoundEffectTime = CurrentTime;
+  } else if ( (NextSoundEffectTime-CurrentTime)>2000 ) {
+    // if we already have two seconds of sound effects
+    // lined up, simply return
+    return;
+  }
+  int count = 0;
+
+  unsigned long soundGapUL = (unsigned long)CHIME_SPACING_CONSTANT;
+
+  byte longestGap = 0;
+
+  // Look for chimes that need to be added based on the current sound effect
+  int arrayCount;
+  int arraySize;
+  ChimeEntry *chimeArray;
+
+  longestGap = 0;
+
+  for (arrayCount=0; arrayCount<(2+MusicLevel*2); arrayCount++) {
+    switch (arrayCount) {
+      case 0: chimeArray = MataHariSFXLowPriorityLevel1; arraySize = sizeof(MataHariSFXLowPriorityLevel1)/sizeof(ChimeEntry); break;
+      case 1: chimeArray = MataHariSFXHighPriorityLevel1; arraySize = sizeof(MataHariSFXHighPriorityLevel1)/sizeof(ChimeEntry); break;
+      case 2: chimeArray = MataHariSFXLowPriorityLevel2; arraySize = sizeof(MataHariSFXLowPriorityLevel2)/sizeof(ChimeEntry); break;
+      case 3: chimeArray = MataHariSFXHighPriorityLevel2; arraySize = sizeof(MataHariSFXHighPriorityLevel2)/sizeof(ChimeEntry); break;
+      default: chimeArray = NULL;
+    }
+    bool solenoidOverride = (arrayCount%2)?true:false;
+    if (chimeArray) {
+      for (count=0; count<arraySize; count++) {
+        if (chimeArray[count].SoundEffectNum==soundEffectNum) {
+         // if (arrayCount<2)
+         // {
+         //   RPU_PushToTimedSolenoidStack(chimeArray[count].SolNumber, 3, CurrentTime, solenoidOverride);
+         // } 
+         // else
+          {
+            RPU_PushToTimedSolenoidStack(chimeArray[count].SolNumber, 3, NextSoundEffectTime + soundGapUL*((unsigned long)chimeArray[count].TimeOffset), solenoidOverride);
+          }
+          if (chimeArray[count].TimeOffset > longestGap) longestGap = chimeArray[count].TimeOffset;
+        }
+      }
+    }
+  }
+  NextSoundEffectTime += (3 + (unsigned long)longestGap)*soundGapUL;  
+#endif 
+  
 }
+
 
 
 void AddCredit(boolean playSound = false, byte numToAdd = 1) {
@@ -2369,12 +2425,12 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
       
       switch (switchHit) {
         case SW_SLAM:
-          //          RPU_DisableSolenoidStack();
-          //          RPU_SetDisableFlippers(true);
-          //          RPU_TurnOffAllLamps();
-          //          RPU_SetLampState(GAME_OVER, 1);
-          //          delay(1000);
-          //          return MACHINE_STATE_ATTRACT;
+            RPU_DisableSolenoidStack();
+            RPU_SetDisableFlippers(true);
+            RPU_TurnOffAllLamps();
+            RPU_SetLampState(GAME_OVER, 1);
+            delay(1000);
+            return MACHINE_STATE_ATTRACT;
         break;
         case SW_TILT:
           // This should be debounced

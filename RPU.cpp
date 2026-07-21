@@ -3404,10 +3404,22 @@ pinMode(RPU_PHI2_PIN, INPUT);
   //delay(1000);
   delayMicroseconds(50000);
   //  RPU_DataWrite(ADDRESS_SB100, 0x01);
+ 
+ /* ---bad logic (inverted)---
   boolean switchStateClosed = false;
   pinMode(RPU_SWITCH_PIN, INPUT);
   if (digitalRead(RPU_SWITCH_PIN)) {
     switchStateClosed = true;
+    retResult |= RPU_RET_SELECTOR_SWITCH_ON;
+  }
+*/
+//inverted logic above fixed below
+
+  pinMode(RPU_SWITCH_PIN, INPUT);
+  // If digitalRead is 0 (LOW), !0 makes switchStateClosed = true
+  boolean switchStateClosed = !digitalRead(RPU_SWITCH_PIN); 
+
+  if (switchStateClosed) {
     retResult |= RPU_RET_SELECTOR_SWITCH_ON;
   }
 

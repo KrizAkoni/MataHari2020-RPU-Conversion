@@ -121,21 +121,21 @@
 #define SW_BUMPER_1             37
 
 // Defines for solenoids
-#define SOL_SAUCER          0
-#define SOL_CHIME_100       1
-#define SOL_CHIME_1000      2
-#define SOL_CHIME_10000     3
-#define SOL_CHIME_10        4
-#define SOL_KNOCKER         5
-#define SOL_OUTHOLE         6
+#define SOL_SAUCER          0 //Q8
+#define SOL_CHIME_100       2 //Q5
+#define SOL_CHIME_1000      3 //Q6
+#define SOL_CHIME_10000     4 //Q7
+#define SOL_CHIME_10        1 //Q1
+#define SOL_KNOCKER         5 //Q3
+#define SOL_OUTHOLE         6 //Q4
 #define SOL_BUMPER_1        7
 #define SOL_BUMPER_2        8
 #define SOL_BUMPER_3        9
 #define SOL_BUMPER_4        10
-#define SOL_LEFT_SLING      11
-#define SOL_LEFT_DROP_TARGETS   12
-#define SOL_RIGHT_SLING     13
-#define SOL_RIGHT_DROP_TARGETS  14  
+#define SOL_LEFT_SLING      11 //Q10
+#define SOL_LEFT_DROP_TARGETS   12 //Q12
+#define SOL_RIGHT_SLING         13 //Q11
+#define SOL_RIGHT_DROP_TARGETS  14 //Q16 
 
 // SWITCHES_WITH_TRIGGERS are for switches that will automatically
 // activate a solenoid (like in the case of a chime that rings on a rollover)
