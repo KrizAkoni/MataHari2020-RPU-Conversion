@@ -1,7 +1,8 @@
 21JUL2026: Fixed logic inversion on Arduino jumper read for Dual Boot mode. boolean switchStateClosed = !digitalRead(RPU_SWITCH_PIN);
            Fixed chime assignments in MataHari2020.h
-           Fixed chime push to solenoid stack routine.
-           Self test and audit needs to be reviewed - I pulled one in from somewhere else and think I broke it. 
+           Fixed chime push to solenoid stack routine and implemented apron credit lamp in MataHari2026Beta.ino
+           Implemented some DIP switch pulls for BallsPerGame, HighScoreReplay, MaximumCredits, CreditDisplay, and MatchFeature
+           Self test and audit needs to be reviewed - I pulled one in from somewhere else and think I broke it. Missing free play setting. 
 
 20JUL2026: Updated RPU to handle REV 3 hardware creditresetbutton boot select. Currently configured to boot to native pin hardware unless credit start button is held. Investigating potential bug regarding handling of reset line in REV 4 hardware.
 

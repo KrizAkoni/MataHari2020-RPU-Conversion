@@ -199,7 +199,7 @@ boolean HighScoreReplay = false;
 boolean MatchFeature = false;
 byte SpecialLightAward = 0;
 boolean BonusCountdown1000Steps = false;
-boolean MaximumNumber4Players = false;
+boolean MaximumNumber4Players = true;
 boolean TournamentScoring = false;
 boolean ResetScoresToClearVersion = false;
 boolean ScrollingScores = true;
@@ -271,7 +271,22 @@ void GetDIPSwitches() {
 }
 
 void DecodeDIPSwitchParameters() {
+  //ScoreAwardReplay = (dipBank0&0x20) ? 7 : 0;
+  // GameMelodyMinimal = (dipBank0&0x80)?false:true;
+ 
+  BallsPerGame = (dipBank1 & 0x80) ? 5 : 3;
+  HighScoreReplay = (dipBank1&0x20)?true:false;
+  MaximumCredits = (dipBank2&0x07)*5 + 5;
+  CreditDisplay = (dipBank2&0x08)?true:false;
+  MatchFeature = (dipBank2&0x10)?true:false;
 
+  //BonusCountdown1000Steps = (dipBank2&0x20)?true:false;
+  //BothTargetSetsFor3X = (dipBank2&80)?true:false;
+
+  //MaximumNumber4Players = (dipBank3&0x01)?true:false; // not used in MataHAri
+  //WowExtraBall = (dipBank3&0x02)?true:false;
+  //StarSpecialOncePerBall = (dipBank3&0x20)?true:false;
+ // SpecialLightAward = (dipBank3)>>6;
 }
 
 void ReadStoredParameters() {
@@ -905,6 +920,12 @@ void ShowPlayerScores(byte displayToUpdate, boolean flashCurrent, boolean dashCu
 
 boolean AddPlayer(boolean resetNumPlayers = false) {
 
+
+  RPU_SetLampState(APRON_CREDIT, (Credits || FreePlayMode));
+  if (Credits < 1 && !FreePlayMode) return false;
+  if (resetNumPlayers) CurrentNumPlayers = 0;
+  if (CurrentNumPlayers >= 4) return false;
+
   if (Credits < 1 && !FreePlayMode) return false;
   if (resetNumPlayers) CurrentNumPlayers = 0;
   if (CurrentNumPlayers >= 4 || (CurrentNumPlayers >= 2 && !MaximumNumber4Players)) return false;
@@ -1391,7 +1412,7 @@ void PlaySoundEffect(byte soundEffectNum) {
     
 */
 
-/*
+/*  Old version, use the one below this
  *  This version of chimes (currently commented out) 
  *  moves the chime callouts from "storage space" to "dynamic memory"
  *  in order to free up space for more code. 
@@ -1510,7 +1531,7 @@ void AddCredit(boolean playSound = false, byte numToAdd = 1) {
     RPU_SetDisplayCredits(Credits);
     RPU_SetCoinLockout(true);
   }
-
+  RPU_SetLampState(APRON_CREDIT, (Credits || FreePlayMode));
 }
 
 
@@ -1541,7 +1562,7 @@ int RunAttractMode(int curState, boolean curStateChanged) {
     if (DEBUG_MESSAGES) {
       Serial.write("Entering Attract Mode\n\r");
     }
-
+    RPU_SetLampState(APRON_CREDIT, (Credits || FreePlayMode));
     AttractLastHeadMode = 0;
     AttractLastPlayfieldMode = 0;
   }
@@ -1585,12 +1606,14 @@ int RunAttractMode(int curState, boolean curStateChanged) {
   if ((CurrentTime / 10000) % 3 < 2) {
     if (AttractLastPlayfieldMode != 1) {
       RPU_TurnOffAllLamps();
+      RPU_SetLampState(APRON_CREDIT, (Credits || FreePlayMode));
     }
 
     AttractLastPlayfieldMode = 1;
   } else {
     if (AttractLastPlayfieldMode != 2) {
       RPU_TurnOffAllLamps();
+      RPU_SetLampState(APRON_CREDIT, (Credits || FreePlayMode));
       AttractLastLadderBonus = 0;
     }
 
@@ -1640,6 +1663,7 @@ int InitGamePlay() {
 
   // Turn back on all lamps that are needed
   SetPlayerLamps(1);
+  RPU_SetLampState(APRON_CREDIT, (Credits || FreePlayMode));
 
   // When we go back to attract mode, there will be no need to reset scores
   ResetScoresToClearVersion = false;
