@@ -1705,8 +1705,7 @@ int InitGamePlay() {
  // === NEW: Require ball in trough before allowing game to start ===
   if (!RPU_ReadSingleSwitchState(SW_OUTHOLE)) {
     // No ball in trough → stay in INIT_GAMEPLAY and show warning
-    RPU_SetupGameSwitches(0, 0, NULL);   // Disable all auto triggers temporarily (silence chimes)
-    if ((CurrentTime / 400) % 2 == 0) {
+        if ((CurrentTime / 400) % 2 == 0) {
       RPU_SetLampState(BALL_IN_PLAY, 1);   // Flash to indicate waiting
       RPU_SetLampState(TILT, 1);            // Optional extra visual
     } else {
@@ -1714,7 +1713,7 @@ int InitGamePlay() {
       RPU_SetLampState(TILT, 0);
     }
     RPU_SetDisplayBallInPlay(0);            // Or show "00" or a message
-
+    RPU_SetupGameSwitches(0, 0, NULL);   // Disable all auto triggers temporarily (silence chimes)
     return MACHINE_STATE_INIT_GAMEPLAY;     // Loop here until ball is detected
   }
 
