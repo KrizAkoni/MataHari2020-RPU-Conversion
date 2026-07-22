@@ -53,7 +53,8 @@
 
 // These defines allow this configuration to eliminate some functions
 // to reduce program size
-#define RPU_OS_USE_DIP_SWITCHES 
+#define RPU_OS_USE_DIP_SWITCHES
+//#define RPU_OS_DISABLE_CPC_FOR_SPACE 
 //#define RPU_OS_USE_S_AND_T
 //#define RPU_OS_USE_DASH51
 //#define RPU_OS_USE_SB100

@@ -18,8 +18,6 @@
     See <https://www.gnu.org/licenses/>.
 */
 
-
-
 #include <Arduino.h>
 #include <EEPROM.h>
 #define RPU_CPP_FILE
@@ -63,23 +61,23 @@ boolean UsesM6800Processor = false;
 #if (RPU_MPU_ARCHITECTURE<10)
 
 #ifdef RPU_USE_EXTENDED_SWITCHES_ON_PB4
-#define NUM_SWITCH_BYTES                6
-#define NUM_SWITCH_BYTES_ON_U10_PORT_A  5
-#define MAX_NUM_SWITCHES                48
-#define DEFAULT_SOLENOID_STATE          0x8F
-#define ST5_CONTINUOUS_SOLENOID_BIT     0x10
-#elif defined(RPU_USE_EXTENDED_SWITCHES_ON_PB7)
-#define NUM_SWITCH_BYTES                6
-#define NUM_SWITCH_BYTES_ON_U10_PORT_A  5
-#define MAX_NUM_SWITCHES                48
-#define DEFAULT_SOLENOID_STATE          0x1F
-#define ST5_CONTINUOUS_SOLENOID_BIT     0x80
+  #define NUM_SWITCH_BYTES                6
+  #define NUM_SWITCH_BYTES_ON_U10_PORT_A  5
+  #define MAX_NUM_SWITCHES                48
+  #define DEFAULT_SOLENOID_STATE          0x8F
+  #define ST5_CONTINUOUS_SOLENOID_BIT     0x10
+  #elif defined(RPU_USE_EXTENDED_SWITCHES_ON_PB7)
+  #define NUM_SWITCH_BYTES                6
+  #define NUM_SWITCH_BYTES_ON_U10_PORT_A  5
+  #define MAX_NUM_SWITCHES                48
+  #define DEFAULT_SOLENOID_STATE          0x1F
+  #define ST5_CONTINUOUS_SOLENOID_BIT     0x80
 #else
-#define RPU_NUM_SOLENOIDS               15
-#define NUM_SWITCH_BYTES                5
-#define NUM_SWITCH_BYTES_ON_U10_PORT_A  5
-#define MAX_NUM_SWITCHES                40
-#define DEFAULT_SOLENOID_STATE          0x9F
+  #define RPU_NUM_SOLENOIDS               15
+  #define NUM_SWITCH_BYTES                5
+  #define NUM_SWITCH_BYTES_ON_U10_PORT_A  5
+  #define MAX_NUM_SWITCHES                40
+  #define DEFAULT_SOLENOID_STATE          0x9F
 #endif
 
 #if !defined(RPU_OS_SWITCH_DELAY_IN_MICROSECONDS) || !defined(RPU_OS_TIMING_LOOP_PADDING_IN_MICROSECONDS)
@@ -1165,7 +1163,7 @@ void InitializeU10PIA() {
   // Set up U10A as output
   RPU_DataWrite(ADDRESS_U10_A, 0xFF);
   // Set bit 3 to write data
-  RPU_DataWrite(ADDRESS_U10_A_CONTROL, RPU_DataRead(ADDRESS_U10_A_CONTROL) | 0x04);
+  RPU_DataWrite(ADDRESS_U10_A_CONTROL, RPU_DataRead(ADDRESS_U10_A_CONTROL)|0x04);
   // Store F0 in U10A Output
   RPU_DataWrite(ADDRESS_U10_A, 0xF0);
 
@@ -1173,7 +1171,7 @@ void InitializeU10PIA() {
   // Set up U10B as input
   RPU_DataWrite(ADDRESS_U10_B, 0x00);
   // Set bit 3 so future reads will read data
-  RPU_DataWrite(ADDRESS_U10_B_CONTROL, RPU_DataRead(ADDRESS_U10_B_CONTROL) | 0x04);
+  RPU_DataWrite(ADDRESS_U10_B_CONTROL, RPU_DataRead(ADDRESS_U10_B_CONTROL)|0x04);
 
 }
 
@@ -1225,11 +1223,11 @@ void InitializeU11PIA() {
   // PA0-7 - display digit enable
   // PB0-7 - solenoid data
 
-  RPU_DataWrite(ADDRESS_U11_A_CONTROL, 0x30);
+  RPU_DataWrite(ADDRESS_U11_A_CONTROL, 0x31);
   // Set up U11A as output
   RPU_DataWrite(ADDRESS_U11_A, 0xFF);
   // Set bit 3 to write data
-  RPU_DataWrite(ADDRESS_U11_A_CONTROL, RPU_DataRead(ADDRESS_U11_A_CONTROL) | 0x04);
+  RPU_DataWrite(ADDRESS_U11_A_CONTROL, RPU_DataRead(ADDRESS_U11_A_CONTROL)|0x04);
   // Store 00 in U11A Output
   RPU_DataWrite(ADDRESS_U11_A, 0x00);
 
@@ -1237,7 +1235,7 @@ void InitializeU11PIA() {
   // Set up U11B as output
   RPU_DataWrite(ADDRESS_U11_B, 0xFF);
   // Set bit 3 so future reads will read data
-  RPU_DataWrite(ADDRESS_U11_B_CONTROL, RPU_DataRead(ADDRESS_U11_B_CONTROL) | 0x04);
+  RPU_DataWrite(ADDRESS_U11_B_CONTROL, RPU_DataRead(ADDRESS_U11_B_CONTROL)|0x04);
   // Store 9F in U11B Output
   RPU_DataWrite(ADDRESS_U11_B, DEFAULT_SOLENOID_STATE);
   CurrentSolenoidByte = DEFAULT_SOLENOID_STATE;
@@ -1249,14 +1247,14 @@ unsigned long RPU_TestPIAs() {
   unsigned long piaErrors = 0;
 
   byte piaResult = RPU_DataRead(ADDRESS_U10_A_CONTROL);
-  if (piaResult != 0x3C) piaErrors |= RPU_RET_U10_PIA_ERROR;
+  if (piaResult!= 0x3C) piaErrors |= RPU_RET_U10_PIA_ERROR;
   piaResult = RPU_DataRead(ADDRESS_U10_B_CONTROL);
-  if (piaResult != 0x37) piaErrors |= RPU_RET_U10_PIA_ERROR;
+  if (piaResult!= 0x37) piaErrors |= RPU_RET_U10_PIA_ERROR;
 
   piaResult = RPU_DataRead(ADDRESS_U11_A_CONTROL);
-  if (piaResult != 0x35) piaErrors |= RPU_RET_U11_PIA_ERROR;
+  if (piaResult!= 0x35) piaErrors |= RPU_RET_U11_PIA_ERROR;
   piaResult = RPU_DataRead(ADDRESS_U11_B_CONTROL);
-  if (piaResult != 0x34) piaErrors |= RPU_RET_U11_PIA_ERROR;
+  if (piaResult!= 0x34) piaErrors |= RPU_RET_U11_PIA_ERROR;
 
   return piaErrors;
 }
@@ -4581,7 +4579,7 @@ void RPU_LISYReadAllSwitches() {
   }
 }
 
-
+/**/
 void RPU_LISYProcessIncoming(unsigned long currentTime) {
   // 1. Prune dead expectations older than 50ms to recover from lost bytes
   while (LISYExpectHead != LISYExpectTail) {

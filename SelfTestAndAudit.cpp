@@ -19,9 +19,10 @@
  */
 
 #include <Arduino.h>
+#include "SelfTestAndAudit.h"
 #include "RPU_Config.h"
 #include "RPU.h"
-#include "SelfTestAndAudit.h"
+
 
 #define MACHINE_STATE_ATTRACT         0
 
