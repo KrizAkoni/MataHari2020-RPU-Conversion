@@ -1698,6 +1698,23 @@ int InitGamePlay() {
     RPU_PushToSolenoidStack(SOL_SAUCER, 5, true);
   }
 
+ // === NEW: Require ball in trough before allowing game to start ===
+  if (!RPU_ReadSingleSwitchState(SW_OUTHOLE)) {
+    // No ball in trough → stay in INIT_GAMEPLAY and show warning
+    if ((CurrentTime / 400) % 2 == 0) {
+      RPU_SetLampState(BALL_IN_PLAY, 1);   // Flash to indicate waiting
+      RPU_SetLampState(TILT, 1);            // Optional extra visual
+    } else {
+      RPU_SetLampState(BALL_IN_PLAY, 0);
+      RPU_SetLampState(TILT, 0);
+    }
+    RPU_SetDisplayBallInPlay(0);            // Or show "00" or a message
+
+    return MACHINE_STATE_INIT_GAMEPLAY;     // Loop here until ball is detected
+  }
+
+  // Ball is confirmed in trough → proceed
+
   return MACHINE_STATE_INIT_NEW_BALL;
 }
 
