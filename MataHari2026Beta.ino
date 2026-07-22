@@ -206,6 +206,7 @@ boolean ScrollingScores = true;
 unsigned long WizardSwitchReward = 50000;
 byte WizardModeTimeLimit = 30;
 byte dipBank0, dipBank1, dipBank2, dipBank3;
+boolean GameReady = false;
 
 
 /*********************************************************************
@@ -1658,8 +1659,10 @@ int InitGamePlay() {
   // us into this mode, so we assume a 1-player game
   // at the moment
   RPU_EnableSolenoidStack();
+  RPU_SetDisableFlippers(true);        // Keep flippers OFF until real start
   RPU_SetCoinLockout((Credits >= MaximumCredits) ? true : false);
   RPU_TurnOffAllLamps();
+  GameReady = false;
 
   // Turn back on all lamps that are needed
   SetPlayerLamps(1);
@@ -1694,6 +1697,7 @@ int InitGamePlay() {
   LastPopBumperHit = 0;
   ScoreOverrideStatus = 0;
 
+  //Clear Saucer
   if (RPU_ReadSingleSwitchState(SW_SAUCER)) {
     RPU_PushToSolenoidStack(SOL_SAUCER, 5, true);
   }
@@ -1701,6 +1705,7 @@ int InitGamePlay() {
  // === NEW: Require ball in trough before allowing game to start ===
   if (!RPU_ReadSingleSwitchState(SW_OUTHOLE)) {
     // No ball in trough → stay in INIT_GAMEPLAY and show warning
+    RPU_SetupGameSwitches(0, 0, NULL);   // Disable all auto triggers temporarily (silence chimes)
     if ((CurrentTime / 400) % 2 == 0) {
       RPU_SetLampState(BALL_IN_PLAY, 1);   // Flash to indicate waiting
       RPU_SetLampState(TILT, 1);            // Optional extra visual
@@ -1713,7 +1718,11 @@ int InitGamePlay() {
     return MACHINE_STATE_INIT_GAMEPLAY;     // Loop here until ball is detected
   }
 
-  // Ball is confirmed in trough → proceed
+  // Ball is ready → Start the game
+  GameReady = true;
+  RPU_SetupGameSwitches(NUM_SWITCHES_WITH_TRIGGERS, NUM_PRIORITY_SWITCHES_WITH_TRIGGERS, TriggeredSwitches);             
+  RPU_SetDisableFlippers(false);
+  RPU_SetLampState(BALL_IN_PLAY, 1);
 
   return MACHINE_STATE_INIT_NEW_BALL;
 }
