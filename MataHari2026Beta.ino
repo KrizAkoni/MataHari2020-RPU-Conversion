@@ -1655,28 +1655,20 @@ int InitGamePlay() {
     Serial.write("Starting game\n\r");
   }
 
-  // The start button has been hit only once to get
-  // us into this mode, so we assume a 1-player game
-  // at the moment
+  // The start button has been hit...
   RPU_EnableSolenoidStack();
-  RPU_SetDisableFlippers(true);        // Keep flippers OFF until real start
   RPU_SetCoinLockout((Credits >= MaximumCredits) ? true : false);
   RPU_TurnOffAllLamps();
-  GameReady = false;
 
-  // Turn back on all lamps that are needed
   SetPlayerLamps(1);
   RPU_SetLampState(APRON_CREDIT, (Credits || FreePlayMode));
 
-  // When we go back to attract mode, there will be no need to reset scores
   ResetScoresToClearVersion = false;
   SamePlayerShootsAgain = false;
 
   // Reset displays & game state variables
   for (int count = 0; count < 4; count++) {
     CurrentScores[count] = 0;
-
-    // Initialize game-specific variables
     ABLaneState = 0x11;
     PopBumperGoal[count] = NUM_POP_BUMPERS_HIT_GOAL;
     ABLaneGoal[count] = NUM_ORBITS_IN_AB_GOAL;
@@ -1697,29 +1689,32 @@ int InitGamePlay() {
   LastPopBumperHit = 0;
   ScoreOverrideStatus = 0;
 
-  //Clear Saucer
   if (RPU_ReadSingleSwitchState(SW_SAUCER)) {
     RPU_PushToSolenoidStack(SOL_SAUCER, 5, true);
   }
 
- // === NEW: Require ball in trough before allowing game to start ===
+  // === NEW: WAIT FOR BALL IN TROUGH ===
   if (!RPU_ReadSingleSwitchState(SW_OUTHOLE)) {
-    // No ball in trough → stay in INIT_GAMEPLAY and show warning
-        if ((CurrentTime / 400) % 2 == 0) {
-      RPU_SetLampState(BALL_IN_PLAY, 1);   // Flash to indicate waiting
-      RPU_SetLampState(TILT, 1);            // Optional extra visual
+    if ((CurrentTime / 400) % 2 == 0) {
+      RPU_SetLampState(BALL_IN_PLAY, 1);
+      RPU_SetLampState(TILT, 1);
     } else {
       RPU_SetLampState(BALL_IN_PLAY, 0);
       RPU_SetLampState(TILT, 0);
     }
-    RPU_SetDisplayBallInPlay(0);            // Or show "00" or a message
-    RPU_SetupGameSwitches(0, 0, NULL);   // Disable all auto triggers temporarily (silence chimes)
-    return MACHINE_STATE_INIT_GAMEPLAY;     // Loop here until ball is detected
+    RPU_SetDisplayBallInPlay(0);
+
+    // Disable automatic chimes completely while waiting
+    RPU_SetupGameSwitches(0, 0, NULL);
+
+    return MACHINE_STATE_INIT_GAMEPLAY;   // Stay here until ball arrives
   }
 
-  // Ball is ready → Start the game
-  GameReady = true;
-  RPU_SetupGameSwitches(NUM_SWITCHES_WITH_TRIGGERS, NUM_PRIORITY_SWITCHES_WITH_TRIGGERS, TriggeredSwitches);             
+  // Ball is in trough → Activate everything
+  RPU_SetupGameSwitches(NUM_SWITCHES_WITH_TRIGGERS, 
+                        NUM_PRIORITY_SWITCHES_WITH_TRIGGERS, 
+                        TriggeredSwitches);
+
   RPU_SetDisableFlippers(false);
   RPU_SetLampState(BALL_IN_PLAY, 1);
 
