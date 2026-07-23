@@ -1,4 +1,5 @@
-23JUL2026: Fixed freeplay option not showing and cleaned up bugs in adjust state definitions. 
+23JUL2026: Fixed freeplay option not showing and cleaned up bugs in adjust state definitions.
+
 22JUL2026: Fixed a potential initialization error in RPU.cpp line ~1226 - void InitializeU11PIA() had 0x30 instead of 0x31 -- RPU_DataWrite(ADDRESS_U11_A_CONTROL, 0x31); 
            The effect being traced was inconsistent read of the self test switch.
 
