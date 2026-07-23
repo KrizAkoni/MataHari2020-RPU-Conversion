@@ -31,3 +31,42 @@ The base library is separated from this implementation so that it can be used by
 * Open the MataHari2020.ino in Arduino's IDE
   
 Refer to the PDF or [Wiki for instructions](https://ballysternos.github.io/) on how to build the hardware. 
+
+# Coin Door Tests, Audits, and Settings  
+```
+Tests (test number shown in Credits, Ball in Play is blank)
+1 - Lamps
+2 - Displays
+3 - Solenoids
+4 - Switches
+5 - Sounds (not applicable)
+
+Settings & Audits (page number shown in Ball in Play, Credits is blank)
+1 - Award Score 1
+2 - Award Score 2
+3 - Award Score 3
+4 - High Score
+5 - Credits
+6 - Total Plays
+7 - Total Replays
+8 - High Score Beat
+9 - Chute 2 Coins
+10 - Chute 1 Coins
+11 - Chute 3 Coins
+12 - Free Play
+13 - Ball Save
+14 - Music Level
+15 - Tournament Scoring
+16 - Reboot (All displays show 8007 (as in "BOOT"), and Credit/Reset button restarts)
+17 - Skill Shot
+18 - Tilt Warnings
+19 - Award Scores (0 = all extra balls, 7 = all specals)
+20 - Number of Balls Per Game (99 = Use DIP Settings)
+21 - Scrolling Scores
+22 - Extra Ball Award (for tournament scoring)
+23 - Special Award (for tournament scoring)
+24 - Playfield Valid (0-3)
+25 - Wizard Mode Time (15/30/45/60)
+26 - Wizard Award
+27 - Dim Level
+```
