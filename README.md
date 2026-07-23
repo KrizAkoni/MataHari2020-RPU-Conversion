@@ -1,4 +1,4 @@
-23JUL2026: Fixed freeplay option not showing and cleaned up bugs in adjust state definitions.
+23JUL2026: Fixed freeplay option not showing in SelfTestAndAudit menus and cleaned up bugs in adjust state definitions.
 
 22JUL2026: Fixed a potential initialization error in RPU.cpp line ~1226 - void InitializeU11PIA() had 0x30 instead of 0x31 -- RPU_DataWrite(ADDRESS_U11_A_CONTROL, 0x31); 
            The effect being traced was inconsistent read of the self test switch.
@@ -13,25 +13,23 @@
 
 16JUL2026: Replaced BSOS files with RPU files and updating references, performing cleanup and debug.
 
-## Mata Hari 2020
 10JUL2026: Imported old BSOS files from https://github.com/RetroPinUpgrade/Stars2020-21 to make this stand alone. BSOS has migrated to RPU. The code will need to be ported to the newest libraries.
 
-Note: This code has a dependency on BallySternOS - it won't build without those files. They're located in a repository here:
-https://github.com/BallySternOS/BallySternOS
-The base library is separated from this implementation so that it can be used by multiple projects without needing to be updated multiple times. For best results, always get all files (both the base library and the MataHari2020 files) each time you build. Read on for basic instructions on how to build this code.
+## Mata Hari 2026
 
+Note:  This code has a dependency on RPU OS HTTP://https://www.pinballrefresh.com/blog/rpu-os
+  it won't build without those files. They're located in a repository here: https://github.com/RetroPinUpgrade/ExampleMachine
+
+The base library has been modified here to include bug fixes necessary to make MataHari run. For best results, always get all files (both the base library and the MataHari2026 files) from here each time you build.
+Read on for basic instructions on how to build this code.
 
 ### To use this code
 * Download the zip file (Code > Download ZIP) or clone the repository to your hard drive.  
-* Get the BallySternOS files ( BallySternOS.* and SelfTestAndAudit.* ) from the repository here:  
- * https://github.com/BallySternOS/BallySternOS/tree/master
- * (Code > Download ZIP)
 * Unzip the MataHari2020 repository and name the folder that it's in as:
-  * MataHari2020  
-* Copy BallySternOS.* and SelfTestAndAudit.* into the MataHari2020 folder
-* Open the MataHari2020.ino in Arduino's IDE
+  * MataHari2026Beta  
+* Open the MataHari2026Beta.ino in Arduino's IDE
   
-Refer to the PDF or [Wiki for instructions](https://ballysternos.github.io/) on how to build the hardware. 
+Refer to https://www.pinballrefresh.com/blog/rpu-os on how to build the hardware. 
 
 # Coin Door Tests, Audits, and Settings  
 ```
