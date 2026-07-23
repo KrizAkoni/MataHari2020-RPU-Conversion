@@ -77,23 +77,23 @@ boolean MachineStateChanged = true;
 #define MACHINE_STATE_BALL_OVER       100
 #define MACHINE_STATE_MATCH_MODE      110
 
-#define MACHINE_STATE_ADJUST_FREEPLAY           -16
-#define MACHINE_STATE_ADJUST_BALL_SAVE          -17
-#define MACHINE_STATE_ADJUST_MUSIC_LEVEL        -18
-#define MACHINE_STATE_ADJUST_TOURNAMENT_SCORING -19
-#define MACHINE_STATE_ADJUST_REBOOT             -20
-#define MACHINE_STATE_ADJUST_SKILL_SHOT_AWARD   -21
+#define MACHINE_STATE_ADJUST_FREEPLAY           -17
+#define MACHINE_STATE_ADJUST_BALL_SAVE          -18
+#define MACHINE_STATE_ADJUST_MUSIC_LEVEL        -19
+#define MACHINE_STATE_ADJUST_TOURNAMENT_SCORING -20
+#define MACHINE_STATE_ADJUST_REBOOT             -21
+#define MACHINE_STATE_ADJUST_SKILL_SHOT_AWARD   -22
 #define MACHINE_STATE_ADJUST_TILT_WARNING       -23
 #define MACHINE_STATE_ADJUST_AWARD_OVERRIDE     -24
 #define MACHINE_STATE_ADJUST_BALLS_OVERRIDE     -25
-#define MACHINE_STATE_ADJUST_SCROLLING_SCORES   -27
-#define MACHINE_STATE_ADJUST_EXTRA_BALL_AWARD   -28
-#define MACHINE_STATE_ADJUST_SPECIAL_AWARD      -29
-#define MACHINE_STATE_ADJUST_PLAYFIELD_VALID    -31
-#define MACHINE_STATE_ADJUST_WIZARD_DURATION    -32
-#define MACHINE_STATE_ADJUST_WIZARD_REWARD      -33
-#define MACHINE_STATE_ADJUST_DIM_LEVEL          -34
-#define MACHINE_STATE_ADJUST_DONE               -36
+#define MACHINE_STATE_ADJUST_SCROLLING_SCORES   -26
+#define MACHINE_STATE_ADJUST_EXTRA_BALL_AWARD   -27
+#define MACHINE_STATE_ADJUST_SPECIAL_AWARD      -28
+#define MACHINE_STATE_ADJUST_PLAYFIELD_VALID    -29
+#define MACHINE_STATE_ADJUST_WIZARD_DURATION    -30
+#define MACHINE_STATE_ADJUST_WIZARD_REWARD      -31
+#define MACHINE_STATE_ADJUST_DIM_LEVEL          -32
+#define MACHINE_STATE_ADJUST_DONE               -33
 
 #define GAME_MODE_SKILL_SHOT            0
 #define GAME_MODE_QUALIFY_SELECT        1
@@ -1055,6 +1055,7 @@ int RunSelfTest(int curState, boolean curStateChanged) {
           CurrentAdjustmentByte = (byte *)&FreePlayMode;
           CurrentAdjustmentStorageByte = EEPROM_FREE_PLAY_BYTE;
           break;
+        
         case MACHINE_STATE_ADJUST_BALL_SAVE:
           AdjustmentType = ADJ_TYPE_LIST;
           NumAdjustmentValues = 5;
@@ -1065,41 +1066,48 @@ int RunSelfTest(int curState, boolean curStateChanged) {
           CurrentAdjustmentByte = &BallSaveNumSeconds;
           CurrentAdjustmentStorageByte = EEPROM_BALL_SAVE_BYTE;
           break;
+        
         case MACHINE_STATE_ADJUST_MUSIC_LEVEL:
           AdjustmentType = ADJ_TYPE_MIN_MAX_DEFAULT;
-#if defined(USE_WAV_TRIGGER) || defined(USE_WAV_TRIGGER_1p3)
-          AdjustmentValues[1] = 5;
-#else
-          AdjustmentValues[1] = 3;
-#endif
+            #if defined(USE_WAV_TRIGGER) || defined(USE_WAV_TRIGGER_1p3)
+              AdjustmentValues[1] = 5;
+              #else
+              AdjustmentValues[1] = 3;
+            #endif
           CurrentAdjustmentByte = &MusicLevel;
           CurrentAdjustmentStorageByte = EEPROM_MUSIC_LEVEL_BYTE;
           break;
+        
         case MACHINE_STATE_ADJUST_TOURNAMENT_SCORING:
           CurrentAdjustmentByte = (byte *)&TournamentScoring;
           CurrentAdjustmentStorageByte = EEPROM_TOURNAMENT_SCORING_BYTE;
           break;
+        
         case MACHINE_STATE_ADJUST_REBOOT:
           for (byte count = 0; count < 4; count++) {
             RPU_SetDisplay(count, 8007, true);
           }
           CurrentAdjustmentByte = 0;
           break;
+        
         case MACHINE_STATE_ADJUST_SKILL_SHOT_AWARD:
           CurrentAdjustmentByte = (byte *)&SkillShotAwardsLevel;
           CurrentAdjustmentStorageByte = EEPROM_SKILL_SHOT_BYTE;
           break;
+        
         case MACHINE_STATE_ADJUST_TILT_WARNING:
           AdjustmentValues[1] = 2;
           CurrentAdjustmentByte = &MaxTiltWarnings;
           CurrentAdjustmentStorageByte = EEPROM_TILT_WARNING_BYTE;
           break;
+        
         case MACHINE_STATE_ADJUST_AWARD_OVERRIDE:
           AdjustmentType = ADJ_TYPE_MIN_MAX_DEFAULT;
           AdjustmentValues[1] = 7;
           CurrentAdjustmentByte = &ScoreAwardReplay;
           CurrentAdjustmentStorageByte = EEPROM_AWARD_OVERRIDE_BYTE;
           break;
+        
         case MACHINE_STATE_ADJUST_BALLS_OVERRIDE:
           AdjustmentType = ADJ_TYPE_LIST;
           NumAdjustmentValues = 3;
@@ -1109,6 +1117,7 @@ int RunSelfTest(int curState, boolean curStateChanged) {
           CurrentAdjustmentByte = &BallsPerGame;
           CurrentAdjustmentStorageByte = EEPROM_BALLS_OVERRIDE_BYTE;
           break;
+        
         case MACHINE_STATE_ADJUST_SCROLLING_SCORES:
           CurrentAdjustmentByte = (byte *)&ScrollingScores;
           CurrentAdjustmentStorageByte = EEPROM_SCROLLING_SCORES_BYTE;
@@ -1708,13 +1717,13 @@ int InitGamePlay() {
     // No ball in trough → stay in INIT_GAMEPLAY and show warning
         if ((CurrentTime / 400) % 2 == 0) {
       RPU_SetLampState(BALL_IN_PLAY, 1);   // Flash to indicate waiting
-      RPU_SetLampState(TILT, 1);            // Optional extra visual
+      RPU_SetLampState(TILT, 1);           // Optional extra visual
     } else {
       RPU_SetLampState(BALL_IN_PLAY, 0);
       RPU_SetLampState(TILT, 0);
     }
     RPU_SetDisplayBallInPlay(0);            // Or show "00" or a message
-    RPU_SetupGameSwitches(0, 0, NULL);   // Disable all auto triggers temporarily (silence chimes)
+    RPU_SetupGameSwitches(0, 0, NULL);      // Disable all auto triggers temporarily (silence chimes)
     return MACHINE_STATE_INIT_GAMEPLAY;     // Loop here until ball is detected
   }
 
