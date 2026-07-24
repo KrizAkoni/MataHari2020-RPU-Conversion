@@ -18,7 +18,7 @@
     See <https://www.gnu.org/licenses/>.
 
     Updated by John Kriz (KrizAkoni@gmail.com) to new RPU code base.
-    V0.2 13JUL2026
+    MataHari2026 V0.2 13JUL2026
 */
 
 //#include "BSOS_Config.h"
@@ -43,8 +43,8 @@ wavTrigger wTrig;             // Our WAV Trigger object
 #endif
 */
 
-#define MATAHARI2020_MAJOR_VERSION  2020
-#define MATAHARI2020_MINOR_VERSION  2
+#define MATAHARI2020_MAJOR_VERSION  2026
+#define MATAHARI2020_MINOR_VERSION  1
 #define DEBUG_MESSAGES  1
 
 
@@ -73,6 +73,7 @@ boolean MachineStateChanged = true;
 #define MACHINE_STATE_UNVALIDATED     3
 #define MACHINE_STATE_NORMAL_GAMEPLAY 4
 #define MACHINE_STATE_WIZARD_MODE     5
+#define MACHINE_STATE_WAIT_FOR_BALL   6
 #define MACHINE_STATE_COUNTDOWN_BONUS 99
 #define MACHINE_STATE_BALL_OVER       100
 #define MACHINE_STATE_MATCH_MODE      110
@@ -363,8 +364,10 @@ void setup() {
   // Tell the OS about game-specific lights and switches
   RPU_SetupGameSwitches(NUM_SWITCHES_WITH_TRIGGERS, NUM_PRIORITY_SWITCHES_WITH_TRIGGERS, TriggeredSwitches);
 
-  // Set up the chips and interrupts
+   // Set up dual boot configuration
   RPU_InitializeMPU(RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET | RPU_CMD_BOOT_ORIGINAL_IF_NOT_SWITCH_CLOSED, SW_CREDIT_RESET);
+
+ // Set up the chips and interrupts
   RPU_DisableSolenoidStack();
   RPU_SetDisableFlippers(true);
 
@@ -392,6 +395,7 @@ void setup() {
   wTrig.samplerateOffset(0);
 #endif
 
+  // Play machine start up sound and clear saucer
   CurrentTime = millis();
   PlaySoundEffect(SOUND_EFFECT_MACHINE_START);
   RPU_PushToSolenoidStack(SOL_SAUCER, 5, true);
@@ -1563,6 +1567,9 @@ unsigned long AttractLastStarTime = 0;
 byte AttractLastHeadMode = 255;
 byte AttractLastPlayfieldMode = 255;
 byte InAttractMode = false;
+// === NEW: Safety timer for the top saucer ball eject ===
+unsigned long SaucerLastKickTime = 0;
+boolean StartButtonWasHeld = false;    // Tracks start button state
 
 int RunAttractMode(int curState, boolean curStateChanged) {
 
@@ -1636,7 +1643,8 @@ int RunAttractMode(int curState, boolean curStateChanged) {
   byte switchHit;
   while ( (switchHit = RPU_PullFirstFromSwitchStack()) != SWITCH_STACK_EMPTY ) {
     if (switchHit == SW_CREDIT_RESET) {
-      if (AddPlayer(true)) returnState = MACHINE_STATE_INIT_GAMEPLAY;
+      //if (AddPlayer(true)) returnState = MACHINE_STATE_INIT_GAMEPLAY;
+      if (AddPlayer(true)) returnState = MACHINE_STATE_WAIT_FOR_BALL;
     }
     if (switchHit == SW_COIN_1 || switchHit == SW_COIN_2 || switchHit == SW_COIN_3) {
       AddCoinToAudit(switchHit);
@@ -1660,6 +1668,61 @@ int RunAttractMode(int curState, boolean curStateChanged) {
 //  Game Play functions
 //
 ////////////////////////////////////////////////////////////////////////////
+
+int RunWaitForBallMode(int curState, boolean curStateChanged) {
+  int returnState = curState;
+
+  if (curStateChanged) {
+    RPU_SetupGameSwitches(0, 0, NULL); // Silence switches/chimes immediately
+    RPU_SetDisplayBallInPlay(0);       // Clear ball display
+  }
+// Clear Saucer Safely (with a 2-second delay between kicks)
+  if (RPU_ReadSingleSwitchState(SW_SAUCER)) {
+    if (CurrentTime - SaucerLastKickTime > 2000) {
+      RPU_PushToSolenoidStack(SOL_SAUCER, 5, true);
+      SaucerLastKickTime = CurrentTime; // Reset the safety window
+    }
+  }
+  // Check if ball is missing from the outhole
+  if (!RPU_ReadSingleSwitchState(SW_OUTHOLE)) {
+    // Ball missing: Flash warning lamps
+    if ((CurrentTime / 400) % 2 == 0) {
+      RPU_SetLampState(BALL_IN_PLAY, 1);
+      RPU_SetLampState(TILT, 1);
+    } else {
+      RPU_SetLampState(BALL_IN_PLAY, 0);
+      RPU_SetLampState(TILT, 0);
+    }
+    
+  // Play sound if start button is pressed while waiting for the ball
+  if (RPU_ReadSingleSwitchState(SW_CREDIT_RESET)) {
+    if (!StartButtonWasHeld) {
+      PlaySoundEffect(SOUND_EFFECT_ADD_PLAYER);
+      StartButtonWasHeld = true; // Mark as held so it doesn't repeat
+    }
+  } else {
+    StartButtonWasHeld = false;   // Reset when the player lets go
+  }
+
+    
+    // Service physical switch stack so coin door buttons still work while waiting
+    byte switchHit;
+    while ((switchHit = RPU_PullFirstFromSwitchStack()) != SWITCH_STACK_EMPTY) {
+      if (switchHit == SW_SELF_TEST_SWITCH && (CurrentTime - GetLastSelfTestChangedTime()) > 250) {
+        returnState = MACHINE_STATE_TEST_LAMPS;
+        SetLastSelfTestChangedTime(CurrentTime);
+      }
+    }
+  } else {
+    // Ball is detected! Clean up warning lamps and advance to initialization
+    RPU_SetLampState(BALL_IN_PLAY, 0);
+    RPU_SetLampState(TILT, 0);
+    returnState = MACHINE_STATE_INIT_GAMEPLAY; 
+  }
+
+  return returnState;
+}
+
 
 int InitGamePlay() {
 
@@ -1712,21 +1775,6 @@ int InitGamePlay() {
   //Clear Saucer
   if (RPU_ReadSingleSwitchState(SW_SAUCER)) {
     RPU_PushToSolenoidStack(SOL_SAUCER, 5, true);
-  }
-
- // === NEW: Require ball in trough before allowing game to start ===
-  if (!RPU_ReadSingleSwitchState(SW_OUTHOLE)) {
-    // No ball in trough → stay in INIT_GAMEPLAY and show warning
-        if ((CurrentTime / 400) % 2 == 0) {
-      RPU_SetLampState(BALL_IN_PLAY, 1);   // Flash to indicate waiting
-      RPU_SetLampState(TILT, 1);           // Optional extra visual
-    } else {
-      RPU_SetLampState(BALL_IN_PLAY, 0);
-      RPU_SetLampState(TILT, 0);
-    }
-    RPU_SetDisplayBallInPlay(0);            // Or show "00" or a message
-    RPU_SetupGameSwitches(0, 0, NULL);      // Disable all auto triggers temporarily (silence chimes)
-    return MACHINE_STATE_INIT_GAMEPLAY;     // Loop here until ball is detected
   }
 
   // Ball is ready → Start the game
@@ -2773,6 +2821,8 @@ void loop() {
     newMachineState = RunSelfTest(MachineState, MachineStateChanged);
   } else if (MachineState == MACHINE_STATE_ATTRACT) {
     newMachineState = RunAttractMode(MachineState, MachineStateChanged);
+  } else if (MachineState == MACHINE_STATE_WAIT_FOR_BALL) {
+    newMachineState = RunWaitForBallMode(MachineState, MachineStateChanged);
   } else {
     newMachineState = RunGamePlayMode(MachineState, MachineStateChanged);
   }
