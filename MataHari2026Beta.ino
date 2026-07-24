@@ -1848,14 +1848,20 @@ int ManageGameMode() {
 
   // Update game mode 
   switch (GameMode) {
+    
     case GAME_MODE_SKILL_SHOT:
-      if (BallFirstSwitchHitTime!=0) {
-        // Something has been hit, so we shouldn't be in skill shot anymore
+      if (GameModeEndTime == 0) {
+        // First time we're in this mode, initialize the timer
+        GameModeEndTime = GameModeStartTime + (1000 * SKILL_SHOT_DURATION);
+      }
+      if (BallFirstSwitchHitTime != 0 || CurrentTime > GameModeEndTime) {
+        // Something has been hit, OR the timer expired, so exit skill shot
         GameMode = GAME_MODE_QUALIFY_SELECT;
         GameModeStartTime = CurrentTime;
         GameModeEndTime = 0;
       }
     break;
+
     case GAME_MODE_QUALIFY_SELECT:
       // To get from qualify to select, the player has to hit both A&B within 10 seconds
       if (LastAHit && LastBHit && ((CurrentTime-LastAHit)/1000)<AB_TIME_TO_QUALIFY_MODE && ((CurrentTime-LastBHit)/1000)<AB_TIME_TO_QUALIFY_MODE) {
@@ -1864,6 +1870,7 @@ int ManageGameMode() {
         GameMode = GAME_MODE_SELECT_MODE;
       }
     break;
+
     case GAME_MODE_SELECT_MODE:
       if (GameModeEndTime==0) {
         // This mode doesn't have an end
@@ -2595,15 +2602,15 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
               RPU_PushToTimedSolenoidStack(SOL_RIGHT_DROP_TARGETS, 15, CurrentTime + 250);
               CurrentScores[CurrentPlayer] += 5000;
             } else {
-              CurrentScores[CurrentPlayer] += 500;
-              RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 750); 
+             CurrentScores[CurrentPlayer] += 500;
+             RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 750); 
             }
           } else {
             if (DEBUG_MESSAGES) {
               Serial.write("Generic Saucer hit\n\r");
             }
-           // CurrentScores[CurrentPlayer] += 500;
-           //RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 750); 
+           CurrentScores[CurrentPlayer] += 500;
+           RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 750); 
           }
           if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           AddToBonus(3);
