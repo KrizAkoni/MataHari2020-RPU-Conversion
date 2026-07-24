@@ -158,6 +158,7 @@ boolean MachineStateChanged = true;
 #define SOUND_EFFECT_AB_LANE_1          31
 #define SOUND_EFFECT_AB_LANE_2          32
 #define SOUND_EFFECT_AB_LANE_3          33
+#define SOUND_EFFECT_SAUCER             34
 #define SOUND_EFFECT_BACKGROUND_1       90
 #define SOUND_EFFECT_BACKGROUND_2       91
 #define SOUND_EFFECT_BACKGROUND_3       92
@@ -2650,6 +2651,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
               RPU_PushToTimedSolenoidStack(SOL_RIGHT_DROP_TARGETS, 15, CurrentTime + 250);
               CurrentScores[CurrentPlayer] += 5000;
             } else {
+             PlaySoundEffect(SOUND_EFFECT_SAUCER);
              CurrentScores[CurrentPlayer] += 500;
              RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 750); 
             }
@@ -2657,6 +2659,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             if (DEBUG_MESSAGES) {
               Serial.write("Generic Saucer hit\n\r");
             }
+           PlaySoundEffect(SOUND_EFFECT_SAUCER);
            CurrentScores[CurrentPlayer] += 500;
            RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 750); 
           }
