@@ -310,6 +310,8 @@ void ReadStoredParameters() {
 
   TournamentScoring = (ReadSetting(EEPROM_TOURNAMENT_SCORING_BYTE, 0)) ? true : false;
 
+  SkillShotAwardsLevel = (ReadSetting(EEPROM_SKILL_SHOT_BYTE, 0)) ? true : false;
+
   MaxTiltWarnings = ReadSetting(EEPROM_TILT_WARNING_BYTE, 2);
   if (MaxTiltWarnings > 2) MaxTiltWarnings = 2;
 
@@ -2579,6 +2581,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
         case SW_SAUCER:
           if (GameMode==GAME_MODE_SKILL_SHOT) {
             PlaySoundEffect(SOUND_EFFECT_SKILL_SHOT);
+            CurrentScores[CurrentPlayer] += (SkillShotAwardsLevel != 0) * 10000;
             RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 1500); 
           } else if (GameMode==GAME_MODE_SELECT_MODE) {
             GameMode = ProspectiveGameMode;
@@ -2599,8 +2602,8 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             if (DEBUG_MESSAGES) {
               Serial.write("Generic Saucer hit\n\r");
             }
-            CurrentScores[CurrentPlayer] += 500;
-            RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 750); 
+           // CurrentScores[CurrentPlayer] += 500;
+           //RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 750); 
           }
           if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           AddToBonus(3);
