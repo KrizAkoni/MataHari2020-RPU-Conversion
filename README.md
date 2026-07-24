@@ -57,7 +57,7 @@ Settings & Audits (page number shown in Ball in Play, Credits is blank)
 14 - Music Level
 15 - Tournament Scoring
 16 - Reboot (All displays show 8007 (as in "BOOT"), and Credit/Reset button restarts)
-17 - Skill Shot
+17 - Skill Shot (0 = Disable, 1 = 10000) Points earned by hitting the saucer on launch.
 18 - Tilt Warnings
 19 - Award Scores (0 = all extra balls, 7 = all specals)
 20 - Number of Balls Per Game (99 = Use DIP Settings)
