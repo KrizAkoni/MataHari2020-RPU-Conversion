@@ -43,8 +43,8 @@ wavTrigger wTrig;             // Our WAV Trigger object
 #endif
 */
 
-#define MATAHARI2020_MAJOR_VERSION  2026
-#define MATAHARI2020_MINOR_VERSION  1
+#define MATAHARI2026_MAJOR_VERSION  2026
+#define MATAHARI2026_MINOR_VERSION  1
 #define DEBUG_MESSAGES  1
 
 
@@ -275,7 +275,7 @@ void GetDIPSwitches() {
 }
 
 void DecodeDIPSwitchParameters() {
-  //ScoreAwardReplay = (dipBank0&0x20) ? 7 : 0;
+  // ScoreAwardReplay = (dipBank0&0x20) ? 7 : 0;
   // GameMelodyMinimal = (dipBank0&0x80)?false:true;
  
   BallsPerGame = (dipBank1 & 0x80) ? 5 : 3;
@@ -366,10 +366,10 @@ void setup() {
   // Tell the OS about game-specific lights and switches
   RPU_SetupGameSwitches(NUM_SWITCHES_WITH_TRIGGERS, NUM_PRIORITY_SWITCHES_WITH_TRIGGERS, TriggeredSwitches);
 
-   // Set up dual boot configuration
+  // Set up dual boot configuration
   RPU_InitializeMPU(RPU_CMD_BOOT_ORIGINAL_IF_CREDIT_RESET | RPU_CMD_BOOT_ORIGINAL_IF_NOT_SWITCH_CLOSED, SW_CREDIT_RESET);
 
- // Set up the chips and interrupts
+  // Set Quiescent State
   RPU_DisableSolenoidStack();
   RPU_SetDisableFlippers(true);
 
@@ -380,13 +380,13 @@ void setup() {
   // Read parameters from EEProm
   ReadStoredParameters();
 
-  CurrentScores[0] = MATAHARI2020_MAJOR_VERSION;
-  CurrentScores[1] = MATAHARI2020_MINOR_VERSION;
+  CurrentScores[0] = MATAHARI2026_MAJOR_VERSION;
+  CurrentScores[1] = MATAHARI2026_MINOR_VERSION;
   CurrentScores[2] = RPU_OS_MAJOR_VERSION;
   CurrentScores[3] = RPU_OS_MINOR_VERSION;
   ResetScoresToClearVersion = true;
 
-#if defined(USE_WAV_TRIGGER) || defined(USE_WAV_TRIGGER_1p3)
+  #if defined(USE_WAV_TRIGGER) || defined(USE_WAV_TRIGGER_1p3)
   // WAV Trigger startup at 57600
   wTrig.start();
   delay(10);
@@ -395,7 +395,7 @@ void setup() {
   //  reset while the WAV Trigger was already playing.
   wTrig.stopAllTracks();
   wTrig.samplerateOffset(0);
-#endif
+  #endif
 
   // Play machine start up sound and clear saucer
   CurrentTime = millis();
@@ -629,7 +629,8 @@ void ShowABLamps(byte mode, byte prospectiveMode, byte abStatus) {
       RPU_SetLampState(A_LANE, 0);
       RPU_SetLampState(B_LANE, 0);      
     }
-  } else if (mode==GAME_MODE_QUALIFY_SELECT) {
+  } 
+  else if (mode==GAME_MODE_QUALIFY_SELECT) {
     unsigned long mostRecentHit = LastAHit;
     if (LastBHit>mostRecentHit) mostRecentHit = LastBHit;
     if ((LastAHit || LastBHit) && ((CurrentTime-mostRecentHit)/1000)<AB_TIME_TO_QUALIFY_MODE) {  
@@ -638,7 +639,8 @@ void ShowABLamps(byte mode, byte prospectiveMode, byte abStatus) {
     } else {      
       showABStatus = true;
     }
-  } else if (mode==GAME_MODE_SELECT_MODE) {
+  } 
+  else if (mode==GAME_MODE_SELECT_MODE) {
     if (prospectiveMode==GAME_MODE_AB_LANES) {
       byte lightPhase = ((CurrentTime-GameModeStartTime)/500)%2;
       RPU_SetLampState(A_LANE, lightPhase%2);
@@ -646,7 +648,8 @@ void ShowABLamps(byte mode, byte prospectiveMode, byte abStatus) {
     } else {
       showABStatus = true;
     }
-  } else if (mode==GAME_MODE_AB_LANES) {
+  } 
+  else if (mode==GAME_MODE_AB_LANES) {
     if (LastModeShotTime && (CurrentTime-LastModeShotTime)<1000) {
       RPU_SetLampState(A_LANE, 1, 0, 200);
       RPU_SetLampState(B_LANE, 1, 0, 200);
@@ -655,7 +658,8 @@ void ShowABLamps(byte mode, byte prospectiveMode, byte abStatus) {
       RPU_SetLampState(A_LANE, lightPhase%2);
       RPU_SetLampState(B_LANE, (lightPhase%2)?0:1);
     }
-  } else {
+  } 
+  else {
     showABStatus = true;
   }
 
@@ -682,8 +686,8 @@ void ShowABRewardLamps(byte mode, byte prospectiveMode, byte abStatus) {
   
   if (mode==GAME_MODE_SKILL_SHOT) {
     for (int count=0; count<7; count++) RPU_SetLampState(AB_SCORES_1000+count, 0);
-  } else {
-    
+  } 
+  else {
     if (mode==GAME_MODE_SELECT_MODE) {
       // The first two seconds, we'll show lights to point to the drop targets
       if (prospectiveMode==GAME_MODE_LEFT_DROP_TARGETS || prospectiveMode==GAME_MODE_RIGHT_DROP_TARGETS || prospectiveMode==GAME_MODE_AB_LANES) {
@@ -738,10 +742,7 @@ void ShowABRewardLamps(byte mode, byte prospectiveMode, byte abStatus) {
         RPU_SetLampState(AB_SCORES_1000+count, (count==abWillScore)?1:0, 0);  
       }
     }
-
-
   }
-  
 }
 
 
@@ -948,15 +949,13 @@ void ShowPlayerScores(byte displayToUpdate, boolean flashCurrent, boolean dashCu
 ////////////////////////////////////////////////////////////////////////////
 
 boolean AddPlayer(boolean resetNumPlayers = false) {
-
-
   RPU_SetLampState(APRON_CREDIT, (Credits || FreePlayMode));
   if (Credits < 1 && !FreePlayMode) return false;
   if (resetNumPlayers) CurrentNumPlayers = 0;
-  if (CurrentNumPlayers >= 4) return false;
+  // if (CurrentNumPlayers >= 4) return false;
 
-  if (Credits < 1 && !FreePlayMode) return false;
-  if (resetNumPlayers) CurrentNumPlayers = 0;
+  // if (Credits < 1 && !FreePlayMode) return false;
+  // if (resetNumPlayers) CurrentNumPlayers = 0;
   if (CurrentNumPlayers >= 4 || (CurrentNumPlayers >= 2 && !MaximumNumber4Players)) return false;
 
   CurrentNumPlayers += 1;
@@ -969,7 +968,7 @@ boolean AddPlayer(boolean resetNumPlayers = false) {
     RPU_SetDisplayCredits(Credits);
     RPU_SetCoinLockout(false);
   }
-  PlaySoundEffect(SOUND_EFFECT_ADD_PLAYER);
+  PlaySoundEffect(SOUND_EFFECT_MACHINE_START);
   SetPlayerLamps(CurrentNumPlayers);
 
   RPU_WriteULToEEProm(RPU_TOTAL_PLAYS_EEPROM_START_BYTE, RPU_ReadULFromEEProm(RPU_TOTAL_PLAYS_EEPROM_START_BYTE) + 1);
@@ -1508,8 +1507,8 @@ void PlaySoundEffect(byte soundEffectNum) {
   // Music level 3 = allow melodies to overlap
   if (CurrentTime>NextSoundEffectTime || MusicLevel==3) {
     NextSoundEffectTime = CurrentTime;
-  } else if ( (NextSoundEffectTime-CurrentTime)>2000 ) {
-    // if we already have two seconds of sound effects
+  } else if ( (NextSoundEffectTime-CurrentTime)>1000 ) {
+    // if we already have one second of sound effects
     // lined up, simply return
     return;
   }
@@ -1589,8 +1588,10 @@ unsigned long AttractLastStarTime = 0;
 byte AttractLastHeadMode = 255;
 byte AttractLastPlayfieldMode = 255;
 byte InAttractMode = false;
-// === NEW: Safety timer for the top saucer ball eject ===
-unsigned long SaucerLastKickTime = 0;
+
+unsigned long SaucerLastKickTime = 0;  // === Safety timer for the top saucer ball eject ===
+unsigned long LastSaucerScoreTime = 0; // === Tracks the last valid saucer hit for debounce ===
+
 boolean StartButtonWasHeld = false;    // Tracks start button state
 
 int RunAttractMode(int curState, boolean curStateChanged) {
@@ -1693,19 +1694,22 @@ int RunAttractMode(int curState, boolean curStateChanged) {
 
 int RunWaitForBallMode(int curState, boolean curStateChanged) {
   int returnState = curState;
-
   if (curStateChanged) {
-    RPU_SetupGameSwitches(0, 0, NULL); // Silence switches/chimes immediately
-    RPU_SetDisplayBallInPlay(0);       // Clear ball display
+    // If we are entering this state, queue an immediate kick 
+    // to clear out any ball that might be resting here on boot.
+    RPU_PushToSolenoidStack(SOL_SAUCER, 5, true);
+    // Set the safety window baseline to the current time so it won't fire again immediately
+    SaucerLastKickTime = CurrentTime; 
   }
-// Clear Saucer Safely (with a 2-second delay between kicks)
+  //Clear Saucer Safely (with a 2-second delay between kicks)
   if (RPU_ReadSingleSwitchState(SW_SAUCER)) {
     if (CurrentTime - SaucerLastKickTime > 2000) {
       RPU_PushToSolenoidStack(SOL_SAUCER, 5, true);
       SaucerLastKickTime = CurrentTime; // Reset the safety window
-    }
+    } 
   }
-  // Check if ball is missing from the outhole
+
+   // Check if ball is missing from the outhole
   if (!RPU_ReadSingleSwitchState(SW_OUTHOLE)) {
     // Ball missing: Flash warning lamps
     if ((CurrentTime / 400) % 2 == 0) {
@@ -1725,7 +1729,6 @@ int RunWaitForBallMode(int curState, boolean curStateChanged) {
   } else {
     StartButtonWasHeld = false;   // Reset when the player lets go
   }
-
     
     // Service physical switch stack so coin door buttons still work while waiting
     byte switchHit;
@@ -1740,8 +1743,7 @@ int RunWaitForBallMode(int curState, boolean curStateChanged) {
     RPU_SetLampState(BALL_IN_PLAY, 0);
     RPU_SetLampState(TILT, 0);
     returnState = MACHINE_STATE_INIT_GAMEPLAY; 
-  }
-
+  } 
   return returnState;
 }
 
@@ -1793,11 +1795,6 @@ int InitGamePlay() {
   LastAHit = 0;
   LastPopBumperHit = 0;
   ScoreOverrideStatus = 0;
-
-  //Clear Saucer
-  if (RPU_ReadSingleSwitchState(SW_SAUCER)) {
-    RPU_PushToSolenoidStack(SOL_SAUCER, 5, true);
-  }
 
   // Ball is ready → Start the game
   GameReady = true;
@@ -1854,7 +1851,7 @@ int InitNewBall(bool curStateChanged, byte playerNum, int ballNum) {
     ABLaneState = 0x11;
     
     // Start appropriate mode music
-    PlaySoundEffect(SOUND_EFFECT_PLAYER_UP);
+    //PlaySoundEffect(SOUND_EFFECT_PLAYER_UP);
 
     if (RPU_ReadSingleSwitchState(SW_OUTHOLE)) {
       RPU_PushToTimedSolenoidStack(SOL_OUTHOLE, 4, CurrentTime + 100);
@@ -2114,7 +2111,7 @@ int CountdownBonus(boolean curStateChanged) {
     BonusCountDownEndTime = 0xFFFFFFFF;
   }
 
-  if ((CurrentTime - LastCountdownReportTime) > 100) {
+  if ((CurrentTime - LastCountdownReportTime) > 250) {
 
     if (Bonus > 0) {
 
@@ -2745,25 +2742,33 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           }
           break;
         case SW_SAUCER:
+          // DEBOUNCE GUARD: Ignore the hit if it occurs within 0.4 second of the last scored hit
+          if ((CurrentTime - LastSaucerScoreTime) < 400) {
+            break; // Exit the case immediately without scoring, playing sounds, or adding bonus
+          }
+
+          // Mark this as a valid, scored hit
+          LastSaucerScoreTime = CurrentTime;
           if (GameMode==GAME_MODE_SKILL_SHOT) {
             PlaySoundEffect(SOUND_EFFECT_SKILL_SHOT);
             CurrentScores[CurrentPlayer] += (SkillShotAwardsLevel != 0) * 10000;
-            RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 1500); 
+            RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 1000); 
           } else if (GameMode==GAME_MODE_SELECT_MODE) {
             GameMode = ProspectiveGameMode;
             if (GameMode<GAME_MODE_AB_LANES || GameMode>GAME_MODE_SLINGS_AND_LANES) GameMode = GAME_MODE_AB_LANES;
             GameModeStartTime = CurrentTime;
             GameModeEndTime = 0;
-            RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 1500); 
+            PlaySoundEffect(SOUND_EFFECT_PLAYER_UP); // Mode Active Sound
+            RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 1000); 
           } else if (GameMode==GAME_MODE_RIGHT_DROP_TARGETS) {
             if (CheckIfRightDropTargetsDown()) {
-              RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 750); 
+              RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 500); 
               RPU_PushToTimedSolenoidStack(SOL_RIGHT_DROP_TARGETS, 15, CurrentTime + 250);
               CurrentScores[CurrentPlayer] += 5000;
             } else {
              PlaySoundEffect(SOUND_EFFECT_SAUCER);
              CurrentScores[CurrentPlayer] += 500;
-             RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 750); 
+             RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 500); 
             }
           } else {
             if (DEBUG_MESSAGES) {
@@ -2771,11 +2776,12 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             }
            PlaySoundEffect(SOUND_EFFECT_SAUCER);
            CurrentScores[CurrentPlayer] += 500;
-           RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 750); 
+           RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 500); 
           }
           if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           AddToBonus(3);
         break;
+        
         case SW_RIGHT_DROP_TARGET_1:
         case SW_RIGHT_DROP_TARGET_2:
         case SW_RIGHT_DROP_TARGET_3:
