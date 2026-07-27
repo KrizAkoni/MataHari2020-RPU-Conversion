@@ -1,3 +1,5 @@
+26JUL2026: Fixed many bugs in the AB non special mode scoring. Made to run closer to original scoring rules. still buggy. And I think I broke the skill shot.
+
 24JUL2026: Implemented ball wait mode for startup to ensure stuck balls are returned before play starts.
 
 23JUL2026: Fixed freeplay option not showing in SelfTestAndAudit menus and cleaned up bugs in adjust state definitions.
