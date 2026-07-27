@@ -209,6 +209,7 @@ unsigned long WizardSwitchReward = 50000;
 byte WizardModeTimeLimit = 30;
 byte dipBank0, dipBank1, dipBank2, dipBank3;
 boolean GameReady = true;
+boolean ABMaxedOut[4] = {false, false, false, false}; // Tracks maxed status for all 4 players
 
 
 /*********************************************************************
@@ -708,6 +709,8 @@ void ShowABRewardLamps(byte mode, byte prospectiveMode, byte abStatus) {
         for (int count=0; count<6; count++) RPU_SetLampState(AB_SCORES_1000+count, 0);
         RPU_SetLampState(AB_SCORES_SPECIAL, (phase%2)?0:1);
       }
+    
+    /* commented this block out because it was misaligned with the displayed score lamps, starting at 2K
     } else {
       byte abWillScore = (abStatus&0x0F);
       byte bStatus = (abStatus&0xF0)>>4;
@@ -718,7 +721,25 @@ void ShowABRewardLamps(byte mode, byte prospectiveMode, byte abStatus) {
         RPU_SetLampState(AB_SCORES_1000+count, (count==abWillScore)?1:0, 0);  
       }
     }
-    
+    */
+    //There may be an underlying bug - I just offset the count by -1 to fix the table display
+      } else {
+        byte abWillScore = (abStatus&0x0F);
+        byte bStatus = (abStatus&0xF0)>>4;
+        if (bStatus<abWillScore) abWillScore = bStatus;
+      
+        // NATIVE TRANSLATION: Baseline 1 maps to Array Index 0 (1000 lamp)
+        if (abWillScore > 0) {
+          abWillScore -= 1;
+      }
+      
+      // Show the current state of the AB reward across all 7 states
+      for (int count=0; count<7; count++) {
+        RPU_SetLampState(AB_SCORES_1000+count, (count==abWillScore)?1:0, 0);  
+      }
+    }
+
+
   }
   
 }
@@ -1805,7 +1826,7 @@ int InitNewBall(bool curStateChanged, byte playerNum, int ballNum) {
     RPU_SetDisplayBallInPlay(ballNum);
     RPU_SetLampState(BALL_IN_PLAY, 1);
     RPU_SetLampState(TILT, 0);
-
+    
     if (BallSaveNumSeconds > 0) {
       RPU_SetLampState(SHOOT_AGAIN, 1, 0, 500);
     }
@@ -1829,6 +1850,8 @@ int InitNewBall(bool curStateChanged, byte playerNum, int ballNum) {
     RPU_SetLampState(SAME_PLAYER_SHOOTS_AGAIN, SamePlayerShootsAgain);
     RPU_SetLampState(SHOOT_AGAIN, SamePlayerShootsAgain);
     RPU_SetLampState(LAST_TARGET_SCORES_SPECIAL, 0);
+    ABMaxedOut[CurrentPlayer] = false;
+    ABLaneState = 0x11;
     
     // Start appropriate mode music
     PlaySoundEffect(SOUND_EFFECT_PLAYER_UP);
@@ -2315,6 +2338,7 @@ void HandleRightDropTarget() {
 }
 */
 
+/* new version below with behavior that more closely mimics the original game
 void AddABLaneScore() {
   byte aNibble = ABLaneState & 0x0F;
   byte bNibble = (ABLaneState & 0xF0)>>4;
@@ -2344,6 +2368,85 @@ void AddABLaneScore() {
       CurrentScores[CurrentPlayer] += 5000;
   }
 }
+*/
+
+//New AddABLaneScore to more closely mimic original game rules
+void AddABLaneScore() {
+  byte aNibble = ABLaneState & 0x0F;
+  byte bNibble = (ABLaneState & 0xF0)>>4;
+  
+  // RULE 1: If they don't match, it's just a single lane hit.
+  // Award 500 points and exit.
+  if (aNibble != bNibble) {
+    CurrentScores[CurrentPlayer] += 500;
+    PlaySoundEffect(SOUND_EFFECT_AB_LANE_1);
+    return; 
+  }
+
+  // RULE 2: They match! Both lanes are complete.
+  // Subtract 1 to look back at the scoring tier they just completed.
+  byte completedTier = aNibble - 1;
+ 
+  switch (completedTier) {
+    case 1:
+      CurrentScores[CurrentPlayer] += 1000;
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+    break;
+    case 2:
+      CurrentScores[CurrentPlayer] += 2000;
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+    break;
+    case 3:
+      CurrentScores[CurrentPlayer] += 3000;
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+    break;
+    case 4:
+      CurrentScores[CurrentPlayer] += 4000;
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+    break;
+    case 5: // Added case 5 for 5000 based on your constants
+      CurrentScores[CurrentPlayer] += 5000;
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      // If the player has already beaten Special, trap them in an endless 5K loop
+      // Resetting the memory back to 0x55 here ensures they stay in case 5 forever!
+      if (ABMaxedOut[CurrentPlayer]) {
+        ABLaneState = 0x55;
+      }
+        
+    break;
+    case 6: // Extra Ball lamp
+      SamePlayerShootsAgain = true;
+      PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
+    break;
+    case 7: // Special lamp
+      AddCredit(true, 1);
+      RPU_PushToTimedSolenoidStack(SOL_KNOCKER, 3, CurrentTime, true);
+      PlaySoundEffect(SOUND_EFFECT_ADD_CREDIT);
+      ABMaxedOut[CurrentPlayer] = true; // Mark that this player completed the ladder!
+      ABLaneState = 0x55;
+
+    break;
+    default:
+      CurrentScores[CurrentPlayer] += 500; // Safety fallback
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+       ABLaneState = 0x55;
+  }
+}
+
 
 void AddABLaneState(boolean bLaneHit) {
   byte aNibble = ABLaneState & 0x0F;
@@ -2567,6 +2670,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           returnState = MACHINE_STATE_TEST_LAMPS;
           SetLastSelfTestChangedTime(CurrentTime);
         break;
+
         case SW_LEFT_INLANE:
         case SW_RIGHT_INLANE:
           if (GameMode != GAME_MODE_WIZARD) {
@@ -2584,6 +2688,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           LastTimeSlingOrLaneHit = CurrentTime;
           AddToBonus(1);
         break;
+
         case SW_LEFT_A_LANE:
         case SW_TOP_A_LANE:
           LastAHit = CurrentTime;
@@ -2594,9 +2699,12 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             OverrideScoreDisplay(CurrentPlayer, ABLaneGoal[CurrentPlayer], true);
             AddToBonus(1);
           }
-          PlaySoundEffect(SOUND_EFFECT_AB_LANE_1);
-          AddABLaneScore();
+          //PlaySoundEffect(SOUND_EFFECT_AB_LANE_1);
+          
+          //swapped for test
           AddABLaneState(false);
+          AddABLaneScore();
+          
           AddToBonus(1);
         break;
         case SW_TOP_B_LANE:
@@ -2609,11 +2717,13 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             OverrideScoreDisplay(CurrentPlayer, ABLaneGoal[CurrentPlayer], true);
             AddToBonus(1);
           }
-          PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
-          AddABLaneScore();
+         // PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+          //swapped for test
           AddABLaneState(true);
+          AddABLaneScore();
           AddToBonus(1);
         break;
+
         case SW_LEFT_OUTLANE:
         case SW_RIGHT_OUTLANE:
           if (GameMode != GAME_MODE_WIZARD) {
