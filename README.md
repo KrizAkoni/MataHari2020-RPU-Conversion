@@ -1,4 +1,5 @@
 27JUL2026: Skill shot working. Working on startup chime sequence and bonus countown chimes.
+           Added normal pop bumper behavior and scoring outside special modes. 100/1000 on AB completion 
 
 26JUL2026: Fixed many bugs in the AB non special mode scoring. Made to run closer to original scoring rules. still buggy. And I think I broke the skill shot.
 

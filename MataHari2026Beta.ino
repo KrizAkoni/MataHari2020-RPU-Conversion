@@ -210,6 +210,8 @@ byte WizardModeTimeLimit = 30;
 byte dipBank0, dipBank1, dipBank2, dipBank3;
 boolean GameReady = true;
 boolean ABMaxedOut[4] = {false, false, false, false}; // Tracks maxed status for all 4 players
+boolean leftBumperLit = false;
+boolean rightBumperLit = false;
 
 
 /*********************************************************************
@@ -592,26 +594,36 @@ void ShowSaucerLamps(byte mode) {
 
 
 void ShowPopBumperLamps(byte mode, byte prospectiveMode, byte popStatus, unsigned long lastTimePopBumperHit) {
-  if (mode==GAME_MODE_SELECT_MODE) {
-    byte lightPhase = ((CurrentTime-GameModeStartTime)/200)%2;
-    if (prospectiveMode==GAME_MODE_POP_BUMPERS) {
-      RPU_SetLampState(POP_BUMPER_1, lightPhase%2);
-      RPU_SetLampState(POP_BUMPER_2, (lightPhase%2)?0:1);
+if (mode == GAME_MODE_SELECT_MODE) {
+    byte lightPhase = ((CurrentTime - GameModeStartTime) / 200) % 2;
+    if (prospectiveMode == GAME_MODE_POP_BUMPERS) {
+      RPU_SetLampState(POP_BUMPER_1, lightPhase % 2);
+      RPU_SetLampState(POP_BUMPER_2, (lightPhase % 2) ? 0 : 1);
+    } else {
+      // If a different mode is being highlighted, show strategic light states
+      RPU_SetLampState(POP_BUMPER_1, leftBumperLit ? 1 : 0);
+      RPU_SetLampState(POP_BUMPER_2, rightBumperLit ? 1 : 0);
     }
-  } else if (mode==GAME_MODE_POP_BUMPERS) {
-    if ((CurrentTime-lastTimePopBumperHit)<1000) {
+  } else if (mode == GAME_MODE_POP_BUMPERS) {
+    if ((CurrentTime - lastTimePopBumperHit) < 1000) {
       RPU_SetLampState(POP_BUMPER_1, 1, 0, 100);
       RPU_SetLampState(POP_BUMPER_2, 1, 0, 100);
     } else {
-      byte lightPhase = ((CurrentTime-GameModeStartTime)/400)%2;
+       byte lightPhase = ((CurrentTime - GameModeStartTime) / 400) % 2;
       RPU_SetLampState(POP_BUMPER_1, 1, lightPhase);
-      RPU_SetLampState(POP_BUMPER_2, 1, (lightPhase)?false:true);
+      RPU_SetLampState(POP_BUMPER_2, 1, (lightPhase) ? false : true);
     }
   } else {
-    if (popStatus) {
-      
-    }
+    // 3. BASELINE GAMEPLAY FALLBACK: For all other states (Skill Shot, Qualify, Drop Targets, etc.)
+    RPU_SetLampState(POP_BUMPER_1, leftBumperLit ? 1 : 0);
+    RPU_SetLampState(POP_BUMPER_2, rightBumperLit ? 1 : 0);
   }
+
+if (mode != GAME_MODE_SELECT_MODE && mode != GAME_MODE_POP_BUMPERS) {
+    RPU_SetLampState(POP_BUMPER_1, leftBumperLit ? 1 : 0);
+    RPU_SetLampState(POP_BUMPER_2, rightBumperLit ? 1 : 0);
+  }
+
 }
 
 void ShowABLamps(byte mode, byte prospectiveMode, byte abStatus) {
@@ -1847,8 +1859,10 @@ int InitNewBall(bool curStateChanged, byte playerNum, int ballNum) {
     RPU_SetLampState(SAME_PLAYER_SHOOTS_AGAIN, SamePlayerShootsAgain);
     RPU_SetLampState(SHOOT_AGAIN, SamePlayerShootsAgain);
     RPU_SetLampState(LAST_TARGET_SCORES_SPECIAL, 0);
-    ABMaxedOut[CurrentPlayer] = false;
     ABLaneState = 0x11;
+    ABMaxedOut[CurrentPlayer] = false;
+    leftBumperLit = false;  // Reset to unlit
+    rightBumperLit = false; // Reset to unlit
     
     // Start appropriate mode music
     //PlaySoundEffect(SOUND_EFFECT_PLAYER_UP);
@@ -2383,7 +2397,21 @@ void AddABLaneScore() {
   // RULE 2: They match! Both lanes are complete.
   // Subtract 1 to look back at the scoring tier they just completed.
   byte completedTier = aNibble - 1;
- 
+
+  // Determine which lane was hit FIRST by comparing existing timestamps.
+  // The smaller timestamp means that lane was struck first!
+  if (LastAHit < LastBHit) {
+    // Lane A was hit FIRST, Lane B completed the set.
+    // Completion 1 lights Left Bumper, Completion 2 adds Right Bumper.
+    if (completedTier >= 1) leftBumperLit = true;
+    if (completedTier >= 2) rightBumperLit = true;
+  } else {
+    // Lane B was hit FIRST, Lane A completed the set.
+    // Completion 1 lights Right Bumper, Completion 2 adds Left Bumper.
+    if (completedTier >= 1) rightBumperLit = true;
+    if (completedTier >= 2) leftBumperLit = true;
+  }
+  
   switch (completedTier) {
     case 1:
       CurrentScores[CurrentPlayer] += 1000;
@@ -2407,7 +2435,7 @@ void AddABLaneScore() {
       PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
       PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
     break;
-    case 5: // Added case 5 for 5000 based on your constants
+    case 5: 
       CurrentScores[CurrentPlayer] += 5000;
       PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
       PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
@@ -2812,10 +2840,76 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           }
           AddToBonus(1);
         break;
+
+        //Dual Mode PopBumpers === Bumper 1 is bottom left, 4 is bottom right
         case SW_BUMPER_1:
+          LastPopBumperHit = CurrentTime;
+          PopBumperPhase += 1;
+          if ((PopBumperPhase % 4) == 0) {
+            ProspectiveGameMode = GetNextUnfinishedMode(ProspectiveGameMode);
+            GameModeStartTime = CurrentTime;
+          }
+          // 1. SCORING GATEWAY
+          if (GameMode != GAME_MODE_WIZARD && !leftBumperLit) {
+            // Option A: Not Wizard Mode and Unlit (100 points)
+            CurrentScores[CurrentPlayer] += 100;
+            PlaySoundEffect(SOUND_EFFECT_BUMPER);
+            if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
+          } 
+          else if (GameMode != GAME_MODE_WIZARD && leftBumperLit) {
+            // Option B: Not Wizard Mode and Lit (1,000 points)
+            CurrentScores[CurrentPlayer] += 1000;
+            PlaySoundEffect(SOUND_EFFECT_BUMPER_LIT);
+            if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
+          } 
+          else {            
+            // Option C: Must be in Wizard Mode
+            WizardSwitchHit();
+          }
+          // 2. MODE OBJECTIVE TRACKING (Always executes for any hit)
+          if (GameMode == GAME_MODE_POP_BUMPERS && PopBumperGoal[CurrentPlayer]) {
+            PopBumperGoal[CurrentPlayer] -= 1;
+            LastModeShotTime = CurrentTime;
+            OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
+          }
+          break; 
+
+        case SW_BUMPER_4:
+                 LastPopBumperHit = CurrentTime;
+          PopBumperPhase += 1;
+          if ((PopBumperPhase % 4) == 0) {
+            ProspectiveGameMode = GetNextUnfinishedMode(ProspectiveGameMode);
+            GameModeStartTime = CurrentTime;
+          }
+          // 1. SCORING GATEWAY
+          if (GameMode != GAME_MODE_WIZARD && !rightBumperLit) {
+            // Option A: Not Wizard Mode and Unlit (100 points)
+            CurrentScores[CurrentPlayer] += 100;
+            PlaySoundEffect(SOUND_EFFECT_BUMPER);
+            if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
+          } 
+          else if (GameMode != GAME_MODE_WIZARD && rightBumperLit) {
+            // Option B: Not Wizard Mode and Lit (1,000 points)
+            CurrentScores[CurrentPlayer] += 1000;
+            PlaySoundEffect(SOUND_EFFECT_BUMPER_LIT);
+            if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
+          } 
+          else {            
+            // Option C: Must be in Wizard Mode
+            WizardSwitchHit();
+          }
+          // 2. MODE OBJECTIVE TRACKING (Always executes for any hit)
+          if (GameMode == GAME_MODE_POP_BUMPERS && PopBumperGoal[CurrentPlayer]) {
+            PopBumperGoal[CurrentPlayer] -= 1;
+            LastModeShotTime = CurrentTime;
+            OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
+          }
+          break;
+
+        // Regular PopBumpers 
         case SW_BUMPER_2:
         case SW_BUMPER_3:
-        case SW_BUMPER_4:
+       
           LastPopBumperHit = CurrentTime;
           PopBumperPhase += 1;
           if ((PopBumperPhase%4)==0) {
@@ -2835,6 +2929,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
           }
         break;
+
         case SW_RIGHT_SLING:
         case SW_LEFT_SLING:
           if (GameMode != GAME_MODE_WIZARD) {
