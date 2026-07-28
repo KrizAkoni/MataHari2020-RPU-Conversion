@@ -1,3 +1,6 @@
+28JUL2026: Fixed bugs in chime bonus countdown logic. Implemented BonusX and BonusXPotential increments on saucer hits while not in a mode select to align better to original gameplay. 
+           Regular saucer hits back to 3K. Bonus multiplier pulls from DIP switch on game. Fixed BonusXPotential lights. 
+
 27JUL2026: Skill shot working. Working on startup chime sequence and bonus countown chimes.
            Added normal pop bumper behavior and scoring outside special modes. 100/1000 on AB completion 
 

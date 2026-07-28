@@ -194,6 +194,7 @@ unsigned long SpecialValue = 0;
 unsigned long CurrentTime = 0;
 byte MaximumCredits = 5;
 byte BallsPerGame = 3;
+byte InitialBonusXPotential = 1;
 boolean CreditDisplay = false;
 byte DimLevel = 2;
 byte ScoreAwardReplay = 0;
@@ -224,6 +225,7 @@ byte CurrentBallInPlay = 1;
 byte CurrentNumPlayers = 0;
 byte Bonus;
 byte BonusX;
+byte BonusXPotential = InitialBonusXPotential; // Starts at DIP baseline
 
 unsigned long CurrentScores[4];
 
@@ -285,6 +287,7 @@ void DecodeDIPSwitchParameters() {
   MaximumCredits = (dipBank2&0x07)*5 + 5;
   CreditDisplay = (dipBank2&0x08)?true:false;
   MatchFeature = (dipBank2&0x10)?true:false;
+  InitialBonusXPotential = (dipBank2 & 0x40) ? 2 : 1;
 
   //BonusCountdown1000Steps = (dipBank2&0x20)?true:false;
   //BothTargetSetsFor3X = (dipBank2&80)?true:false;
@@ -570,6 +573,7 @@ void ShowOutlanes(byte mode, byte prospectiveMode, bool leftOutlaneLit, bool rig
    
 }
 
+// Saucer Lamp Control
 unsigned long LastShowSaucerLamps = 0;
 void ShowSaucerLamps(byte mode) {
 
@@ -588,7 +592,19 @@ void ShowSaucerLamps(byte mode) {
       RPU_SetLampState(BONUS_3X_POTENTIAL, 0);
       RPU_SetLampState(BONUS_5X_POTENTIAL, 0);
     }
+  
+  } else if (mode == GAME_MODE_SELECT_MODE) {
+      // 200ms per step. Modulo 3-step loop (0, 1, 2)
+      byte selectPhase = ((CurrentTime - GameModeStartTime) / 200) % 3;
+      RPU_SetLampState(BONUS_2X_POTENTIAL, (selectPhase == 0) ? 1 : 0);
+      RPU_SetLampState(BONUS_3X_POTENTIAL, (selectPhase == 1) ? 1 : 0);
+      RPU_SetLampState(BONUS_5X_POTENTIAL, (selectPhase == 2) ? 1 : 0);
+  
   } else {
+    // Light appropriate BonusXPoteltial
+    RPU_SetLampState(BONUS_2X_POTENTIAL, (BonusXPotential == 2) ? 1 : 0);
+    RPU_SetLampState(BONUS_3X_POTENTIAL, (BonusXPotential == 3) ? 1 : 0);
+    RPU_SetLampState(BONUS_5X_POTENTIAL, (BonusXPotential == 5) ? 1 : 0);
   }
 }
 
@@ -1795,6 +1811,7 @@ int InitGamePlay() {
     LeftTargetGoal[count] = NUM_LEFT_TARGETS_GOAL;
     RightTargetGoal[count] = NUM_RIGHT_TARGETS_GOAL;
     ModeCompletionStatus[count] = 0;
+    BonusXPotential = InitialBonusXPotential; // Set to DIP setting
   }
 
   CurrentBallInPlay = 1;
@@ -1842,6 +1859,7 @@ int InitNewBall(bool curStateChanged, byte playerNum, int ballNum) {
 
     Bonus = 0;
     BonusX = 1;
+    BonusXPotential = InitialBonusXPotential; // Set to DIP initial setting
     BallSaveUsed = false;
     SkillShotRunning = true;
     BallTimeInTrough = 0;
@@ -2132,7 +2150,15 @@ int CountdownBonus(boolean curStateChanged) {
       // Only give sound & score if this isn't a tilt
       if (NumTiltWarnings <= MaxTiltWarnings) {
         CurrentScores[CurrentPlayer] += ((unsigned long)BonusX)*1000;
-        PlaySoundEffect(SOUND_EFFECT_BONUS_COUNT + BonusX);
+          if (BonusX == 5) {
+              PlaySoundEffect(SOUND_EFFECT_5X_BONUS_COUNT); // Safely fires Index 5
+            } else if (BonusX == 3) {
+              PlaySoundEffect(SOUND_EFFECT_3X_BONUS_COUNT); // Safely fires Index 3
+            } else if (BonusX == 2) {
+              PlaySoundEffect(SOUND_EFFECT_2X_BONUS_COUNT); // Safely fires Index 2
+            } else {
+              PlaySoundEffect(SOUND_EFFECT_BONUS_COUNT);    // Safely fires Index 1
+            }
       }
 
       Bonus -= 1;
@@ -2795,16 +2821,24 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
               CurrentScores[CurrentPlayer] += 5000;
             } else {
              PlaySoundEffect(SOUND_EFFECT_SAUCER);
-             CurrentScores[CurrentPlayer] += 500;
+             CurrentScores[CurrentPlayer] += 3000;
              RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 500); 
             }
           } else {
             if (DEBUG_MESSAGES) {
               Serial.write("Generic Saucer hit\n\r");
             }
-           PlaySoundEffect(SOUND_EFFECT_SAUCER);
-           CurrentScores[CurrentPlayer] += 500;
-           RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 500); 
+                if (BonusXPotential == 1)      BonusX = 1; // Base 1X scoring
+                  else if (BonusXPotential == 2) BonusX = 2; // Upgrades to 2X
+                  else if (BonusXPotential == 3) BonusX = 3; // Upgrades to 3X
+                  else if (BonusXPotential == 5) BonusX = 5; // Upgrades and locks at 5X
+                if (BonusXPotential == 1)      BonusXPotential = 2;
+                 else if (BonusXPotential == 2) BonusXPotential = 3;
+                 else if (BonusXPotential == 3) BonusXPotential = 5;
+                else                           BonusXPotential = 5;
+                  PlaySoundEffect(SOUND_EFFECT_SAUCER);
+                  CurrentScores[CurrentPlayer] += 3000;
+                  RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 500); 
           }
           if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           AddToBonus(3);
