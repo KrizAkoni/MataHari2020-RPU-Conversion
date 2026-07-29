@@ -250,6 +250,9 @@ byte ProspectiveGameMode = GAME_MODE_AB_LANES;
 byte PopBumperPhase = 0;
 byte LeftDropTargetStatus;
 byte RightDropTargetStatus;
+byte LeftDropsSweptCount = 0;
+byte Full8DropsSweptCount = 0;
+boolean LastTargetScoresSpecial = false;
 
 boolean CurrentlyShowingBallSave = false;
 boolean SkillShotRunning = false;
@@ -432,6 +435,14 @@ void SetPlayerLamps(byte numPlayers, byte playerOffset = 0, int flashPeriod = 0)
   }
 }
 
+void ShowDropTargetSpecialLamp(byte mode, boolean isSpecialLit) {
+  // RULE: The Special lamp should ONLY be active during QUALIFY_SELECT mode
+  if (mode == GAME_MODE_QUALIFY_SELECT && isSpecialLit) {
+    RPU_SetLampState(LAST_TARGET_SCORES_SPECIAL, 1); // True matching lamp constant
+  } else {
+    RPU_SetLampState(LAST_TARGET_SCORES_SPECIAL, 0); // Force OFF during other modes or if unlit
+  }
+}
 
 void ShowBonusOnTree(byte bonus, byte dim=0) {
   if (bonus>MAX_DISPLAY_BONUS) bonus = MAX_DISPLAY_BONUS;
@@ -548,6 +559,12 @@ void ShowBonusXLights(byte mode, byte prospectiveMode, byte bonusX, unsigned lon
 
 
 void ShowOutlanes(byte mode, byte prospectiveMode, bool leftOutlaneLit, bool rightOutlaneLit, unsigned long lastSlingAndLaneHit) {
+  //Force inputs true if the saucer has reached maxed 5X Potential
+  if (BonusXPotential == 5) {
+    leftOutlaneLit = true;
+    rightOutlaneLit = true;
+  }
+  
   if (mode==GAME_MODE_SELECT_MODE) {  
     if (prospectiveMode==GAME_MODE_SLINGS_AND_LANES) {
       byte lightPhase = ((CurrentTime-GameModeStartTime)/300)%2;
@@ -1881,6 +1898,9 @@ int InitNewBall(bool curStateChanged, byte playerNum, int ballNum) {
     ABMaxedOut[CurrentPlayer] = false;
     leftBumperLit = false;  // Reset to unlit
     rightBumperLit = false; // Reset to unlit
+    LeftDropsSweptCount = 0;
+    Full8DropsSweptCount = 0;
+    LastTargetScoresSpecial = false;
     
     // Start appropriate mode music
     //PlaySoundEffect(SOUND_EFFECT_PLAYER_UP);
@@ -2064,10 +2084,13 @@ int ManageGameMode() {
   ShowSamePlayerLamps(SamePlayerShootsAgain);
   ShowBonusLights(GameMode, ProspectiveGameMode, Bonus);
   ShowBonusXLights(GameMode, ProspectiveGameMode, BonusX, LastTimeSlingOrLaneHit);
+
+
   ShowOutlanes(GameMode, ProspectiveGameMode, GetLeftOutlane(CurrentPlayer), GetRightOutlane(CurrentPlayer), LastTimeSlingOrLaneHit);
   ShowSaucerLamps(GameMode);
   ShowABRewardLamps(GameMode, ProspectiveGameMode, ABLaneState);
   ShowPopBumperLamps(GameMode, ProspectiveGameMode, 0, LastPopBumperHit);
+  ShowDropTargetSpecialLamp(GameMode, LastTargetScoresSpecial);
 
   // Check to see if ball is in the outhole
   if (RPU_ReadSingleSwitchState(SW_OUTHOLE)) {
@@ -2568,7 +2591,26 @@ void HandleLeftDropTargetHit(byte switchHit) {
   }
 
   // If targets need to be reset
-  boolean bankDown = (currentStatus==0x0F);
+  boolean bankDown = false;
+
+  // Rule A: If we are running inside either dedicated drop target mission mode, 
+  // allow the left bank to reset on its own isolated 4-target completion.
+  if (GameMode == GAME_MODE_LEFT_DROP_TARGETS || GameMode == GAME_MODE_RIGHT_DROP_TARGETS) {
+    bankDown = (currentStatus == 0x0F);
+  } 
+
+  // Rule B: Normal Gameplay. Both left and right banks must be completely down (0x0F) 
+  // to trigger a dual reset.
+  else {
+    boolean leftBankIsDown = (currentStatus == 0x0F);
+    boolean rightBankIsDown = (RightDropTargetStatus == 0x0F); // Cross-check right bitmask state
+    
+    if (leftBankIsDown && rightBankIsDown) {
+      bankDown = true;
+    }
+  }
+
+  
   if (bankDown || frenzyReset) {
     if (ResetLeftDropTargetStatusTime==0) {
       unsigned long extraDelay = 0;
@@ -2578,8 +2620,46 @@ void HandleLeftDropTargetHit(byte switchHit) {
 //        IncreaseBonusX();
 //        soundPlayed = true;
 //        AddToBonus(2);
+
+ // --- 8-TARGET SWEEP REWARDS FOR NORMAL PLAY (LEFT HANDLER TRAP) ---
+        Full8DropsSweptCount += 1;
+        soundPlayed = true; // Blocks basic target chimes from repeating
+        
+        if (Full8DropsSweptCount == 1) {
+          // 1st Complete Sweep: Award 50,000 points and prime Special light rule
+          CurrentScores[CurrentPlayer] += 50000;
+          PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
+          LastTargetScoresSpecial = true; 
+        } 
+        else if (Full8DropsSweptCount == 2) {
+          // 2nd+ Complete Sweep: Check for Tournament Constraints
+          if (TournamentScoring) {
+            // TOURNAMENT MODE ACTIVE: Converts the Special reward into an additional 50,000 points
+            CurrentScores[CurrentPlayer] += 50000;
+            PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
+          } else {
+            // CASUAL MODE ACTIVE: Collect Special Reward (Loud knocker coil fire and free game credit)
+            AddCredit(true, 1);
+            RPU_PushToTimedSolenoidStack(SOL_KNOCKER, 3, CurrentTime, true);
+            PlaySoundEffect(SOUND_EFFECT_ADD_CREDIT);
+          }
+          LastTargetScoresSpecial = false; 
+        }
+        else {
+          PlaySoundEffect(SOUND_EFFECT_SKILL_SHOT); 
+        }
+//
+//
       }
+
       RPU_PushToTimedSolenoidStack(SOL_LEFT_DROP_TARGETS, 12, CurrentTime + 500 + extraDelay);
+
+      if (GameMode != GAME_MODE_LEFT_DROP_TARGETS && GameMode != GAME_MODE_RIGHT_DROP_TARGETS) {
+        RPU_PushToTimedSolenoidStack(SOL_RIGHT_DROP_TARGETS, 12, CurrentTime + 500 + 150 + extraDelay);
+        // Reset the right tracking register back to 0 so the right switch file stays in sync
+        RightDropTargetStatus = 0; 
+      }
+
       ResetLeftDropTargetStatusTime = CurrentTime + 850 + extraDelay;
     }
   }
@@ -2609,20 +2689,77 @@ void HandleRightDropTargetHit(byte switchHit) {
 
     RightDropTargetStatus |= targetBit;
   }
+  // If targets need to be reset
+  boolean bankDown = false;
+
+  // Rule A: If running inside either dedicated drop target mission mode, 
+  // allow the right bank to reset on its own isolated 4-target completion.
+  if (GameMode == GAME_MODE_LEFT_DROP_TARGETS || GameMode == GAME_MODE_RIGHT_DROP_TARGETS) {
+    bankDown = (currentStatus == 0x0F);
+  } 
+
+  // Rule B: Normal Gameplay. Both left and right banks must be completely down (0x0F) 
+  // to trigger a dual reset.
+  else {
+    boolean rightBankIsDown = (currentStatus == 0x0F);
+    boolean leftBankIsDown = (LeftDropTargetStatus == 0x0F); // Cross-check left bitmask state
+    
+    if (leftBankIsDown && rightBankIsDown) {
+      bankDown = true;
+    }
+  }
 
   // If targets need to be reset
-  boolean bankDown = (currentStatus==0x0F);
   if (bankDown || frenzyReset) {
     if (ResetRightDropTargetStatusTime==0) {
       unsigned long extraDelay = 0;
       if (frenzyReset) {
         extraDelay = 2000;
       } else {
+// Payout and tracker hooks
 //        IncreaseBonusX();
 //        soundPlayed = true;
 //        AddToBonus(2);
+
+// --- 8-TARGET SWEEP REWARDS FOR NORMAL PLAY (RIGHT HANDLER TRAP) ---
+        Full8DropsSweptCount += 1;
+        soundPlayed = true; // Blocks basic target chimes from repeating
+        
+        if (Full8DropsSweptCount == 1) {
+          // 1st Complete Sweep: Award 50,000 points and prime Special light rule
+          CurrentScores[CurrentPlayer] += 50000;
+          PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
+          LastTargetScoresSpecial = true; 
+        } 
+        else if (Full8DropsSweptCount == 2) {
+          // 2nd Complete Sweep: Check for Tournament Constraints
+          if (TournamentScoring) {
+            // TOURNAMENT MODE ACTIVE: Converts the Special reward into an additional 50,000 points
+            CurrentScores[CurrentPlayer] += 50000;
+            PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
+          } else {
+            // CASUAL MODE ACTIVE: Collect Special Reward (Loud knocker coil fire and free game credit)
+            AddCredit(true, 1);
+            RPU_PushToTimedSolenoidStack(SOL_KNOCKER, 3, CurrentTime, true);
+            PlaySoundEffect(SOUND_EFFECT_ADD_CREDIT);
+          }
+          LastTargetScoresSpecial = false; 
+        }
+        else {
+          PlaySoundEffect(SOUND_EFFECT_SKILL_SHOT); 
+        }
       }
+
       RPU_PushToTimedSolenoidStack(SOL_RIGHT_DROP_TARGETS, 12, CurrentTime + 500 + extraDelay);
+
+      // SAFE STAGGER FIX: Shift the Left Bank reset coil execution window by an extra 100ms
+      // Spreads out the power spike safely while appearing simultaneous to the eye!
+      if (GameMode != GAME_MODE_LEFT_DROP_TARGETS && GameMode != GAME_MODE_RIGHT_DROP_TARGETS) {
+        RPU_PushToTimedSolenoidStack(SOL_LEFT_DROP_TARGETS, 12, CurrentTime + 500 + 150 + extraDelay);
+        // Reset the left tracking register back to 0 so the left switch file stays in sync
+        LeftDropTargetStatus = 0; 
+      }
+
       ResetRightDropTargetStatusTime = CurrentTime + 850 + extraDelay;
     }
   }
@@ -2630,9 +2767,7 @@ void HandleRightDropTargetHit(byte switchHit) {
   if (!soundPlayed) {
     PlaySoundEffect(SOUND_EFFECT_DROP_TARGET);
   }
-
 }
-
 
 
 
@@ -2777,15 +2912,27 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
 
         case SW_LEFT_OUTLANE:
         case SW_RIGHT_OUTLANE:
+          if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
+
           if (GameMode != GAME_MODE_WIZARD) {
-            CurrentScores[CurrentPlayer] += 500;
-            PlaySoundEffect(SOUND_EFFECT_OUTLANE_UNLIT);
-            if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
+            //CurrentScores[CurrentPlayer] += 500;
+            //PlaySoundEffect(SOUND_EFFECT_OUTLANE_UNLIT);
+            //if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
+            // Check if the outlanes have been upgraded to 50K by the saucer
+            if (BonusXPotential == 5) {
+              CurrentScores[CurrentPlayer] += 50000;
+              PlaySoundEffect(SOUND_EFFECT_OUTLANE_LIT); // Big score award chimes
+            } else {
+              // Basic outlane scoring fallback (e.g., standard lit or unlit value)
+              CurrentScores[CurrentPlayer] += 1000; 
+              PlaySoundEffect(SOUND_EFFECT_OUTLANE_UNLIT); // Uses your matching lit asset
+            }
           } else {
             WizardSwitchHit();
           }
           LastTimeSlingOrLaneHit = CurrentTime;
         break;
+
         case SW_10_PTS:
           if (GameMode != GAME_MODE_WIZARD) {
             CurrentScores[CurrentPlayer] += 10;
@@ -2866,7 +3013,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           HandleLeftDropTargetHit(switchHit);
           if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           if (GameMode == GAME_MODE_WIZARD) CurrentScores[CurrentPlayer] += WizardSwitchReward;
-          if (GameMode==GAME_MODE_RIGHT_DROP_TARGETS && LeftTargetGoal[CurrentPlayer]) {
+          if (GameMode==GAME_MODE_LEFT_DROP_TARGETS && LeftTargetGoal[CurrentPlayer]) {
             LeftTargetGoal[CurrentPlayer] -= 1;
             LastModeShotTime = CurrentTime;
             OverrideScoreDisplay(CurrentPlayer, LeftTargetGoal[CurrentPlayer], true);
@@ -2885,9 +3032,9 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           }
           // 1. SCORING GATEWAY
           if (GameMode != GAME_MODE_WIZARD && !leftBumperLit) {
-            // Option A: Not Wizard Mode and Unlit (100 points)
-            CurrentScores[CurrentPlayer] += 100;
-            PlaySoundEffect(SOUND_EFFECT_BUMPER);
+            // Option A: Not Wizard Mode and Unlit (10 points)
+            CurrentScores[CurrentPlayer] += 10;
+            PlaySoundEffect(SOUND_EFFECT_BUMPER_10);
             if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           } 
           else if (GameMode != GAME_MODE_WIZARD && leftBumperLit) {
@@ -2918,8 +3065,8 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           // 1. SCORING GATEWAY
           if (GameMode != GAME_MODE_WIZARD && !rightBumperLit) {
             // Option A: Not Wizard Mode and Unlit (100 points)
-            CurrentScores[CurrentPlayer] += 100;
-            PlaySoundEffect(SOUND_EFFECT_BUMPER);
+            CurrentScores[CurrentPlayer] += 10;
+            PlaySoundEffect(SOUND_EFFECT_BUMPER_10);
             if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           } 
           else if (GameMode != GAME_MODE_WIZARD && rightBumperLit) {
