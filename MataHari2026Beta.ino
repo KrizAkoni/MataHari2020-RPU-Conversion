@@ -26,7 +26,7 @@
 #include "RPU.h"
 #include "MataHari2020.h"
 #include "SelfTestAndAudit.h"
-#include "DropTargets.h"
+//#include "DropTargets.h"
 #include "AudioHandler.h"
 #include "LampAnimations.h"
 #include <EEPROM.h>
@@ -159,6 +159,8 @@ boolean MachineStateChanged = true;
 #define SOUND_EFFECT_AB_LANE_2          32
 #define SOUND_EFFECT_AB_LANE_3          33
 #define SOUND_EFFECT_SAUCER             34
+#define SOUND_EFFECT_BIG_SLING_SHOT     35
+#define SOUND_EFFECT_BIG_INLANE         36
 #define SOUND_EFFECT_BACKGROUND_1       90
 #define SOUND_EFFECT_BACKGROUND_2       91
 #define SOUND_EFFECT_BACKGROUND_3       92
@@ -213,6 +215,7 @@ boolean GameReady = true;
 boolean ABMaxedOut[4] = {false, false, false, false}; // Tracks maxed status for all 4 players
 boolean leftBumperLit = false;
 boolean rightBumperLit = false;
+boolean outlanesSwapped = false; 
 
 
 /*********************************************************************
@@ -367,9 +370,11 @@ void ReadStoredParameters() {
 
 
 void setup() {
+/*  
   if (DEBUG_MESSAGES) {
     Serial.begin(115200);
   }
+*/
 
   // Tell the OS about game-specific lights and switches
   RPU_SetupGameSwitches(NUM_SWITCHES_WITH_TRIGGERS, NUM_PRIORITY_SWITCHES_WITH_TRIGGERS, TriggeredSwitches);
@@ -559,10 +564,17 @@ void ShowBonusXLights(byte mode, byte prospectiveMode, byte bonusX, unsigned lon
 
 
 void ShowOutlanes(byte mode, byte prospectiveMode, bool leftOutlaneLit, bool rightOutlaneLit, unsigned long lastSlingAndLaneHit) {
-  //Force inputs true if the saucer has reached maxed 5X Potential
-  if (BonusXPotential == 5) {
-    leftOutlaneLit = true;
-    rightOutlaneLit = true;
+  //Outlane Swapper
+  boolean leftWants50K = (BonusXPotential == 5);
+  boolean rightWants50K = (BonusX == 5);
+  // Apply the swap logic to the lamps based on the bumper flag
+  if (outlanesSwapped == false) {
+    if (leftWants50K)  leftOutlaneLit = true;
+    if (rightWants50K) rightOutlaneLit = true;
+  } else {
+    // Flipped state: Left lamp reads the Right variable, Right lamp reads the Left variable!
+    if (rightWants50K) leftOutlaneLit = true;
+    if (leftWants50K)  rightOutlaneLit = true;
   }
   
   if (mode==GAME_MODE_SELECT_MODE) {  
@@ -1073,11 +1085,13 @@ int RunSelfTest(int curState, boolean curStateChanged) {
   int returnState = curState;
   CurrentNumPlayers = 0;
 
+/*
   if (curStateChanged) {
     if (DEBUG_MESSAGES) {
       Serial.write("State changed in Self Test Mode\n\r");
     }
   }
+*/
 
   
 #if defined(USE_WAV_TRIGGER) || defined(USE_WAV_TRIGGER_1p3)
@@ -1647,9 +1661,11 @@ int RunAttractMode(int curState, boolean curStateChanged) {
     RPU_DisableSolenoidStack();
     RPU_TurnOffAllLamps();
     RPU_SetDisableFlippers(true);
+/*
     if (DEBUG_MESSAGES) {
       Serial.write("Entering Attract Mode\n\r");
     }
+*/
     RPU_SetLampState(APRON_CREDIT, (Credits || FreePlayMode));
     AttractLastHeadMode = 0;
     AttractLastPlayfieldMode = 0;
@@ -1794,11 +1810,11 @@ int RunWaitForBallMode(int curState, boolean curStateChanged) {
 
 
 int InitGamePlay() {
-
+/*
   if (DEBUG_MESSAGES) {
     Serial.write("Starting game\n\r");
   }
-
+*/
   // The start button has been hit only once to get
   // us into this mode, so we assume a 1-player game
   // at the moment
@@ -1999,6 +2015,7 @@ int ManageGameMode() {
         ProspectiveGameMode = GetNextUnfinishedMode(GAME_MODE_AB_LANES-1);
       }
     break;
+
     case GAME_MODE_AB_LANES:
       if (GameModeEndTime==0) {
         OverrideScoreDisplay(CurrentPlayer, ABLaneGoal[CurrentPlayer], true);
@@ -2011,8 +2028,12 @@ int ManageGameMode() {
         if (ABLaneGoal[CurrentPlayer]<=(NUM_ORBITS_IN_AB_GOAL/2)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_AB_LANES;
         }
+        // --- Clear AB Status
+        LastAHit = 0;
+        LastBHit = 0;
       }
     break;
+
     case GAME_MODE_LEFT_DROP_TARGETS:
       if (GameModeEndTime==0) {
         OverrideScoreDisplay(CurrentPlayer, LeftTargetGoal[CurrentPlayer], true);
@@ -2026,8 +2047,17 @@ int ManageGameMode() {
         if (LeftTargetGoal[CurrentPlayer]<(NUM_LEFT_TARGETS_GOAL/2)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_LEFT_DROPS;
         }
+        // --- RESET DROPS AT END OF MODE ---
+        RPU_PushToTimedSolenoidStack(SOL_LEFT_DROP_TARGETS, 12, CurrentTime + 100);
+        RPU_PushToTimedSolenoidStack(SOL_RIGHT_DROP_TARGETS, 12, CurrentTime + 100 + 150); // Safe 150ms stagger
+        LeftDropTargetStatus = 0;   // Reset internal memory registers
+        RightDropTargetStatus = 0;
+        // --- Clear AB Status
+        LastAHit = 0;
+        LastBHit = 0; 
       }
     break;
+
     case GAME_MODE_RIGHT_DROP_TARGETS:
       if (GameModeEndTime==0) {
         OverrideScoreDisplay(CurrentPlayer, RightTargetGoal[CurrentPlayer], true);
@@ -2041,8 +2071,17 @@ int ManageGameMode() {
         if (LeftTargetGoal[CurrentPlayer]<(NUM_RIGHT_TARGETS_GOAL-4)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_RIGHT_DROPS;
         }
+        // --- RESET DROPS AT END OF MODE ---
+        RPU_PushToTimedSolenoidStack(SOL_LEFT_DROP_TARGETS, 12, CurrentTime + 100);
+        RPU_PushToTimedSolenoidStack(SOL_RIGHT_DROP_TARGETS, 12, CurrentTime + 100 + 150); // Safe 150ms stagger
+        LeftDropTargetStatus = 0;   // Reset internal memory registers
+        RightDropTargetStatus = 0;
+        // --- Clear AB Status
+        LastAHit = 0;
+        LastBHit = 0;
       }
     break;
+
     case GAME_MODE_POP_BUMPERS:
       if (GameModeEndTime==0) {
         OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
@@ -2055,8 +2094,12 @@ int ManageGameMode() {
         if (PopBumperGoal[CurrentPlayer]==0) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_POP_BUMPERS;
         }
+        // --- Clear AB Status
+        LastAHit = 0;
+        LastBHit = 0;
       }
     break;
+
     case GAME_MODE_SLINGS_AND_LANES:
       if (GameModeEndTime==0) {
         OverrideScoreDisplay(CurrentPlayer, SlingsAndLanesGoal[CurrentPlayer], true);
@@ -2069,8 +2112,13 @@ int ManageGameMode() {
         if (SlingsAndLanesGoal[CurrentPlayer]<(NUM_SLINGS_AND_INLANES/2)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_SLINGS_AND_LANES;
         }
+        // --- Clear AB Status
+        LastAHit = 0;
+        LastBHit = 0;
       }
     break;
+
+
     case GAME_MODE_WIZARD:
       if (GameModeEndTime==0) {
         // First time we're in this mode
@@ -2512,17 +2560,19 @@ void AddABLaneScore() {
     break;
     default:
       CurrentScores[CurrentPlayer] += 500; // Safety fallback
-      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
-      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
-      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
-      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
-      PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
+      PlaySoundEffect(SOUND_EFFECT_AB_LANE_1);
+
        ABLaneState = 0x55;
   }
 }
 
 
 void AddABLaneState(boolean bLaneHit) {
+  
+  if (GameMode != GAME_MODE_QUALIFY_SELECT && GameMode != GAME_MODE_SELECT_MODE && GameMode != GAME_MODE_SKILL_SHOT) {
+  return; // Only collect AB loop bonus accumulations during normal play. Exit the function instantly without changing the lane nibbles if in a mode!
+  }
+  
   byte aNibble = ABLaneState & 0x0F;
   byte bNibble = (ABLaneState & 0xF0)>>4;
 
@@ -2535,7 +2585,6 @@ void AddABLaneState(boolean bLaneHit) {
   if (bNibble>15) bNibble = 15;
   ABLaneState = (bNibble<<4) | aNibble;
 }
-
 
 byte CheckSequentialSwitches(byte startingSwitch, byte numSwitches) {
   byte returnSwitches = 0; 
@@ -2622,6 +2671,7 @@ void HandleLeftDropTargetHit(byte switchHit) {
 //        AddToBonus(2);
 
  // --- 8-TARGET SWEEP REWARDS FOR NORMAL PLAY (LEFT HANDLER TRAP) ---
+      if (GameMode != GAME_MODE_LEFT_DROP_TARGETS && GameMode != GAME_MODE_RIGHT_DROP_TARGETS) {
         Full8DropsSweptCount += 1;
         soundPlayed = true; // Blocks basic target chimes from repeating
         
@@ -2648,11 +2698,13 @@ void HandleLeftDropTargetHit(byte switchHit) {
         else {
           PlaySoundEffect(SOUND_EFFECT_SKILL_SHOT); 
         }
+      }
 //
 //
       }
 
       RPU_PushToTimedSolenoidStack(SOL_LEFT_DROP_TARGETS, 12, CurrentTime + 500 + extraDelay);
+
 
       if (GameMode != GAME_MODE_LEFT_DROP_TARGETS && GameMode != GAME_MODE_RIGHT_DROP_TARGETS) {
         RPU_PushToTimedSolenoidStack(SOL_RIGHT_DROP_TARGETS, 12, CurrentTime + 500 + 150 + extraDelay);
@@ -2722,6 +2774,7 @@ void HandleRightDropTargetHit(byte switchHit) {
 //        AddToBonus(2);
 
 // --- 8-TARGET SWEEP REWARDS FOR NORMAL PLAY (RIGHT HANDLER TRAP) ---
+      if (GameMode != GAME_MODE_LEFT_DROP_TARGETS && GameMode != GAME_MODE_RIGHT_DROP_TARGETS) {
         Full8DropsSweptCount += 1;
         soundPlayed = true; // Blocks basic target chimes from repeating
         
@@ -2749,10 +2802,12 @@ void HandleRightDropTargetHit(byte switchHit) {
           PlaySoundEffect(SOUND_EFFECT_SKILL_SHOT); 
         }
       }
-
+//
+//
+      }
       RPU_PushToTimedSolenoidStack(SOL_RIGHT_DROP_TARGETS, 12, CurrentTime + 500 + extraDelay);
 
-      // SAFE STAGGER FIX: Shift the Left Bank reset coil execution window by an extra 100ms
+      // SAFE STAGGER FIX: Shift the Left Bank reset coil execution window by an extra 150ms
       // Spreads out the power spike safely while appearing simultaneous to the eye!
       if (GameMode != GAME_MODE_LEFT_DROP_TARGETS && GameMode != GAME_MODE_RIGHT_DROP_TARGETS) {
         RPU_PushToTimedSolenoidStack(SOL_LEFT_DROP_TARGETS, 12, CurrentTime + 500 + 150 + extraDelay);
@@ -2781,13 +2836,13 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
   int returnState = curState;
 //  byte bonusAtTop = Bonus;
   unsigned long scoreAtTop = CurrentScores[CurrentPlayer];
-
+/*
   if (curStateChanged) {
     if (DEBUG_MESSAGES) {
       Serial.write("State changed in Game Play Mode\n\r");
     }
   }
-
+*/
   // Very first time into gameplay loop
   if (curState == MACHINE_STATE_INIT_GAMEPLAY) {
     returnState = InitGamePlay();
@@ -2859,73 +2914,134 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
 
         case SW_LEFT_INLANE:
         case SW_RIGHT_INLANE:
-          if (GameMode != GAME_MODE_WIZARD) {
-            CurrentScores[CurrentPlayer] += 500;
-            PlaySoundEffect(SOUND_EFFECT_INLANE);
-            if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
-            if (GameMode == GAME_MODE_SLINGS_AND_LANES && SlingsAndLanesGoal[CurrentPlayer]) {
+          if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
+
+          // 1. Wizard Mode
+          if (GameMode == GAME_MODE_WIZARD) {
+            WizardSwitchHit();
+          } 
+          // 2. Active Slings & Lanes Mode
+          else if (GameMode == GAME_MODE_SLINGS_AND_LANES) {
+            CurrentScores[CurrentPlayer] += 3000; // Aligned 3,000-point mission reward!
+            PlaySoundEffect(SOUND_EFFECT_BIG_INLANE); // 
+            
+            // Handle Countdown Objective Tracking & Display Update
+            if (SlingsAndLanesGoal[CurrentPlayer]) {
               SlingsAndLanesGoal[CurrentPlayer] -= 1;
               LastModeShotTime = CurrentTime;
-              CurrentScores[CurrentPlayer] += 1000;
+              OverrideScoreDisplay(CurrentPlayer, SlingsAndLanesGoal[CurrentPlayer], true);
             }
-          } else {
-            WizardSwitchHit();
+          } 
+          // 3. Standard operational gameplay fallback (500 Points)
+          else {
+            CurrentScores[CurrentPlayer] += 500;
+            PlaySoundEffect(SOUND_EFFECT_INLANE);
           }
+
           LastTimeSlingOrLaneHit = CurrentTime;
           AddToBonus(1);
         break;
 
         case SW_LEFT_A_LANE:
         case SW_TOP_A_LANE:
-          LastAHit = CurrentTime;
+          LastAHit = CurrentTime; 
           if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
-          if (GameMode==GAME_MODE_AB_LANES && ABLaneGoal[CurrentPlayer]) {
-            ABLaneGoal[CurrentPlayer] -= 1;
-            LastModeShotTime = CurrentTime;
-            OverrideScoreDisplay(CurrentPlayer, ABLaneGoal[CurrentPlayer], true);
-            AddToBonus(1);
+          
+          // 1. ACTIVE MODE GATE: If a specialized mode is active, handle scoring independently
+          if (GameMode != GAME_MODE_QUALIFY_SELECT && GameMode != GAME_MODE_SELECT_MODE && GameMode != GAME_MODE_SKILL_SHOT) {
+            
+            // If the active mode is specifically the AB Lanes mission, score high mission points
+            if (GameMode == GAME_MODE_AB_LANES) {
+              CurrentScores[CurrentPlayer] += 3000; // Escalated mission reward
+              PlaySoundEffect(SOUND_EFFECT_AB_LANE_3);
+              
+              if (ABLaneGoal[CurrentPlayer]) {
+                ABLaneGoal[CurrentPlayer] -= 1;
+                LastModeShotTime = CurrentTime;
+                OverrideScoreDisplay(CurrentPlayer, ABLaneGoal[CurrentPlayer], true);
+              }
+            } 
+            // For any other mode (like Drop Targets or Pop Bumpers), just award a basic 500-point hit
+            else {
+              CurrentScores[CurrentPlayer] += 500;
+              PlaySoundEffect(SOUND_EFFECT_AB_LANE_1);
+            }
+            
+          } 
+          // 2. STANDARD GAMEPLAY: Only run your progressive math functions when in normal play
+          else {
+            AddABLaneState(false);
+            AddABLaneScore();
           }
-          //PlaySoundEffect(SOUND_EFFECT_AB_LANE_1);
-          
-          //swapped for test
-          AddABLaneState(false);
-          AddABLaneScore();
-          
           AddToBonus(1);
         break;
+
         case SW_TOP_B_LANE:
         case SW_RIGHT_B_LANE:
-          LastBHit = CurrentTime;
+          LastBHit = CurrentTime; 
           if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
-          if (GameMode==GAME_MODE_AB_LANES && ABLaneGoal[CurrentPlayer]) {
-            ABLaneGoal[CurrentPlayer] -= 1;
-            LastModeShotTime = CurrentTime;
-            OverrideScoreDisplay(CurrentPlayer, ABLaneGoal[CurrentPlayer], true);
-            AddToBonus(1);
+          
+          // 1. ACTIVE MODE GATE: If a specialized mode is active, handle scoring independently
+          if (GameMode != GAME_MODE_QUALIFY_SELECT && GameMode != GAME_MODE_SELECT_MODE && GameMode != GAME_MODE_SKILL_SHOT) {
+            
+            if (GameMode == GAME_MODE_AB_LANES) {
+              CurrentScores[CurrentPlayer] += 3000; 
+              PlaySoundEffect(SOUND_EFFECT_AB_LANE_3);
+              
+              if (ABLaneGoal[CurrentPlayer]) {
+                ABLaneGoal[CurrentPlayer] -= 1;
+                LastModeShotTime = CurrentTime;
+                OverrideScoreDisplay(CurrentPlayer, ABLaneGoal[CurrentPlayer], true);
+              }
+            } 
+            else {
+              CurrentScores[CurrentPlayer] += 500;
+              PlaySoundEffect(SOUND_EFFECT_AB_LANE_1);
+            }
+            
+          } 
+          // 2. STANDARD GAMEPLAY: Only run progressive math functions when in normal play
+          else {
+            AddABLaneState(true);
+            AddABLaneScore();
           }
-         // PlaySoundEffect(SOUND_EFFECT_AB_LANE_2);
-          //swapped for test
-          AddABLaneState(true);
-          AddABLaneScore();
+
           AddToBonus(1);
         break;
 
         case SW_LEFT_OUTLANE:
+          if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
+
+          if (GameMode != GAME_MODE_WIZARD) {
+            // Determine which rule applies to this physical switch right now
+            boolean leftIsUpgraded = (outlanesSwapped == false) ? (BonusXPotential == 5) : (BonusX == 5);
+
+            if (leftIsUpgraded) {
+              CurrentScores[CurrentPlayer] += 50000;
+              PlaySoundEffect(SOUND_EFFECT_OUTLANE_LIT); 
+            } else {
+              CurrentScores[CurrentPlayer] += 1000; 
+              PlaySoundEffect(SOUND_EFFECT_OUTLANE_UNLIT); 
+            }
+          } else {
+            WizardSwitchHit();
+          }
+          LastTimeSlingOrLaneHit = CurrentTime;
+        break;
+
         case SW_RIGHT_OUTLANE:
           if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
 
           if (GameMode != GAME_MODE_WIZARD) {
-            //CurrentScores[CurrentPlayer] += 500;
-            //PlaySoundEffect(SOUND_EFFECT_OUTLANE_UNLIT);
-            //if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
-            // Check if the outlanes have been upgraded to 50K by the saucer
-            if (BonusXPotential == 5) {
+            // Determine which rule applies to this physical switch right now
+            boolean rightIsUpgraded = (outlanesSwapped == false) ? (BonusX == 5) : (BonusXPotential == 5);
+
+            if (rightIsUpgraded) {
               CurrentScores[CurrentPlayer] += 50000;
-              PlaySoundEffect(SOUND_EFFECT_OUTLANE_LIT); // Big score award chimes
+              PlaySoundEffect(SOUND_EFFECT_OUTLANE_LIT); 
             } else {
-              // Basic outlane scoring fallback (e.g., standard lit or unlit value)
               CurrentScores[CurrentPlayer] += 1000; 
-              PlaySoundEffect(SOUND_EFFECT_OUTLANE_UNLIT); // Uses your matching lit asset
+              PlaySoundEffect(SOUND_EFFECT_OUTLANE_UNLIT); 
             }
           } else {
             WizardSwitchHit();
@@ -2972,9 +3088,10 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
              RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 500); 
             }
           } else {
-            if (DEBUG_MESSAGES) {
+/*            if (DEBUG_MESSAGES) {
               Serial.write("Generic Saucer hit\n\r");
             }
+*/            
                 if (BonusXPotential == 1)      BonusX = 1; // Base 1X scoring
                   else if (BonusXPotential == 2) BonusX = 2; // Upgrades to 2X
                   else if (BonusXPotential == 3) BonusX = 3; // Upgrades to 3X
@@ -3006,6 +3123,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           }
           AddToBonus(1);
         break;
+
         case SW_LEFT_DROP_TARGET_1:
         case SW_LEFT_DROP_TARGET_2:
         case SW_LEFT_DROP_TARGET_3:
@@ -3030,60 +3148,76 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             ProspectiveGameMode = GetNextUnfinishedMode(ProspectiveGameMode);
             GameModeStartTime = CurrentTime;
           }
+
           // 1. SCORING GATEWAY
-          if (GameMode != GAME_MODE_WIZARD && !leftBumperLit) {
-            // Option A: Not Wizard Mode and Unlit (10 points)
-            CurrentScores[CurrentPlayer] += 10;
-            PlaySoundEffect(SOUND_EFFECT_BUMPER_10);
+          if (GameMode == GAME_MODE_WIZARD) {            
+            WizardSwitchHit();
+          }
+
+          else if (GameMode == GAME_MODE_POP_BUMPERS) {
+            // High point reward per hit during the dedicated mode
+            CurrentScores[CurrentPlayer] += 3000; 
+            PlaySoundEffect(SOUND_EFFECT_BUMPER_LIT);
+            
+            // Handle Countdown Objective Tracking
+            if (PopBumperGoal[CurrentPlayer] > 0) {
+              PopBumperGoal[CurrentPlayer] -= 1;
+              LastModeShotTime = CurrentTime;
+              OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
+            }            
             if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
-          } 
-          else if (GameMode != GAME_MODE_WIZARD && leftBumperLit) {
-            // Option B: Not Wizard Mode and Lit (1,000 points)
+          }
+
+          else if (leftBumperLit) {
             CurrentScores[CurrentPlayer] += 1000;
             PlaySoundEffect(SOUND_EFFECT_BUMPER_LIT);
             if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
-          } 
-          else {            
-            // Option C: Must be in Wizard Mode
-            WizardSwitchHit();
           }
-          // 2. MODE OBJECTIVE TRACKING (Always executes for any hit)
-          if (GameMode == GAME_MODE_POP_BUMPERS && PopBumperGoal[CurrentPlayer]) {
-            PopBumperGoal[CurrentPlayer] -= 1;
-            LastModeShotTime = CurrentTime;
-            OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
+
+          else {
+            CurrentScores[CurrentPlayer] += 10;
+            PlaySoundEffect(SOUND_EFFECT_BUMPER_10);
+            if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           }
-          break; 
+        break;
 
         case SW_BUMPER_4:
-                 LastPopBumperHit = CurrentTime;
+          LastPopBumperHit = CurrentTime;
           PopBumperPhase += 1;
           if ((PopBumperPhase % 4) == 0) {
             ProspectiveGameMode = GetNextUnfinishedMode(ProspectiveGameMode);
             GameModeStartTime = CurrentTime;
           }
+
           // 1. SCORING GATEWAY
-          if (GameMode != GAME_MODE_WIZARD && !rightBumperLit) {
-            // Option A: Not Wizard Mode and Unlit (100 points)
-            CurrentScores[CurrentPlayer] += 10;
-            PlaySoundEffect(SOUND_EFFECT_BUMPER_10);
+          if (GameMode == GAME_MODE_WIZARD) {            
+            WizardSwitchHit();
+          }
+
+          else if (GameMode == GAME_MODE_POP_BUMPERS) {
+            // High point reward per hit during the dedicated mode
+            CurrentScores[CurrentPlayer] += 3000; 
+            PlaySoundEffect(SOUND_EFFECT_BUMPER_LIT);
+            
+            // Handle Countdown Objective Tracking
+            if (PopBumperGoal[CurrentPlayer] > 0) {
+              PopBumperGoal[CurrentPlayer] -= 1;
+              LastModeShotTime = CurrentTime;
+              OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
+            }            
             if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
-          } 
-          else if (GameMode != GAME_MODE_WIZARD && rightBumperLit) {
-            // Option B: Not Wizard Mode and Lit (1,000 points)
+          }
+
+          else if (rightBumperLit) {
             CurrentScores[CurrentPlayer] += 1000;
             PlaySoundEffect(SOUND_EFFECT_BUMPER_LIT);
             if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
-          } 
-          else {            
-            // Option C: Must be in Wizard Mode
-            WizardSwitchHit();
           }
-          // 2. MODE OBJECTIVE TRACKING (Always executes for any hit)
-          if (GameMode == GAME_MODE_POP_BUMPERS && PopBumperGoal[CurrentPlayer]) {
-            PopBumperGoal[CurrentPlayer] -= 1;
-            LastModeShotTime = CurrentTime;
-            OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
+
+          else {
+            CurrentScores[CurrentPlayer] += 10;
+            PlaySoundEffect(SOUND_EFFECT_BUMPER_10);
+            if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           }
           break;
 
@@ -3100,6 +3234,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           if (GameMode != GAME_MODE_WIZARD) {
             CurrentScores[CurrentPlayer] += 100;
             PlaySoundEffect(SOUND_EFFECT_BUMPER);
+            outlanesSwapped = !outlanesSwapped;
             if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           } else {
             WizardSwitchHit();
@@ -3113,20 +3248,39 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
 
         case SW_RIGHT_SLING:
         case SW_LEFT_SLING:
-          if (GameMode != GAME_MODE_WIZARD) {
-            CurrentScores[CurrentPlayer] += 10;
-            PlaySoundEffect(SOUND_EFFECT_SLING_SHOT);
-            if (GameMode == GAME_MODE_SLINGS_AND_LANES && SlingsAndLanesGoal[CurrentPlayer]) {
+          if ((CurrentTime - LastTimeSlingOrLaneHit) < 150) {
+            break; // Exit the case statement immediately
+          }
+          // 1. Wizard Mode
+          if (GameMode == GAME_MODE_WIZARD) {
+            WizardSwitchHit();
+          } 
+          // 2. Active Slings & Lanes Mode
+          else if (GameMode == GAME_MODE_SLINGS_AND_LANES) {
+            CurrentScores[CurrentPlayer] += 3000; // Escalated mission reward!
+            PlaySoundEffect(SOUND_EFFECT_BIG_SLING_SHOT); 
+            
+            // Objective Tracking & Display Update
+            if (SlingsAndLanesGoal[CurrentPlayer]) {
               SlingsAndLanesGoal[CurrentPlayer] -= 1;
               LastModeShotTime = CurrentTime;
               OverrideScoreDisplay(CurrentPlayer, SlingsAndLanesGoal[CurrentPlayer], true);
             }
-          } else {
-            WizardSwitchHit();
+          } 
+          // 3. Standard operational gameplay
+          else {
+            CurrentScores[CurrentPlayer] += 10;
+            PlaySoundEffect(SOUND_EFFECT_SLING_SHOT);
+            if (leftBumperLit != rightBumperLit) {
+              leftBumperLit = !leftBumperLit;
+              rightBumperLit = !rightBumperLit;
+            }
           }
+
           if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           LastTimeSlingOrLaneHit = CurrentTime;
         break;
+
         case SW_COIN_1:
         case SW_COIN_2:
         case SW_COIN_3:
@@ -3148,9 +3302,10 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
               returnState = MACHINE_STATE_INIT_GAMEPLAY;
             }
           }
-          if (DEBUG_MESSAGES) {
+/*          if (DEBUG_MESSAGES) {
             Serial.write("Start game button pressed\n\r");
           }
+*/          
         break;
       }
     }
