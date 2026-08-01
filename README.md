@@ -1,4 +1,6 @@
-30JUL2026: Fixed a mode progression bug - modes transition properly now. Implemented wizard mode with audible countdown. Wizard mode ball save. Fixed drop target tracker bugs. 
+31JUL2026: Moved mode countdowns to credit window to not obscure scores. Wizard shows countdown on three that are not active player.
+
+30JUL2026: Fixed a mode progression bug - modes transition properly now. Implemented wizard mode with audible countdown. Wizaerd mode ball save. Fixed drop target tracker bugs. 
            Added full attract mode.
 
 29JUL2026: Fixed drop behavior, drops now reset at end of mode. Bug fix, drops during drop mode don't count toward normal play 8 drop.

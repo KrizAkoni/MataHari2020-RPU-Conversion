@@ -220,7 +220,10 @@ boolean GameReady = true;
 boolean ABMaxedOut[4] = {false, false, false, false}; // Tracks maxed status for all 4 players
 boolean leftBumperLit = false;
 boolean rightBumperLit = false;
-boolean outlanesSwapped = false; 
+boolean outlanesSwapped = false;
+//unsigned long LastABHitTime = 0;
+boolean CurrentlyShowingABHits = false;
+int LastABReportedValue = -1; 
 
 
 /*********************************************************************
@@ -239,11 +242,11 @@ unsigned long CurrentScores[4];
 
 byte ABLaneState;
 byte ModeCompletionStatus[4];
-byte PopBumperGoal[4];
-byte ABLaneGoal[4];
-byte SlingsAndLanesGoal[4];
-byte LeftTargetGoal[4];
-byte RightTargetGoal[4];
+byte PopBumperGoal[20];
+byte ABLaneGoal[5];
+byte SlingsAndLanesGoal[12];
+byte LeftTargetGoal[8];
+byte RightTargetGoal[8];
 
 byte LeftOutlane;
 byte RightOutlane;
@@ -1762,10 +1765,10 @@ int RunAttractMode(int curState, boolean curStateChanged) {
   // ==========================================================================
   // 2. CUSTOM PLAYFIELD LAMP ANIMATION STACKS (Replaces only this block)
   // ==========================================================================
-  if ((CurrentTime / 10000) % 3 < 2) {
-    // --- STAGE 1: THE SONIC ROCKET SWEEP (Vertical Wave) ---
+  if ((CurrentTime / 10000) % 2 == 0) {
+    // --- STAGE 1: THE SONIC ROCKET SWEEP (Geometry-Aligned Vertical Wave) ---
     if (AttractLastPlayfieldMode != 1) {
-      RPU_TurnOffAllLamps(); // Safe: Runs exactly once on phase transition!
+      RPU_TurnOffAllLamps(); 
       RPU_SetLampState(APRON_CREDIT, (Credits || FreePlayMode));
       AttractLastSweepTime = CurrentTime;
       AttractSweepLights = 0; 
@@ -1779,53 +1782,64 @@ int RunAttractMode(int curState, boolean curStateChanged) {
       AttractLastSweepTime = CurrentTime;
     }
 
+    // ==========================================================================
+    // 💎 SMOOTH GLOW FUNCTION: Math parameters set state and dim automatically!
+    // State 1 = Active. Dim 1 = Low intensity trailing halo glow.
+    // ==========================================================================
+    
     // Lower Vertical Ladder Climbing Steps (0-5)
-    RPU_SetLampState(BONUS_1, (AttractSweepLights == 0));
-    RPU_SetLampState(BONUS_2, (AttractSweepLights == 1));
-    RPU_SetLampState(BONUS_3, (AttractSweepLights == 2));
-    RPU_SetLampState(BONUS_4, (AttractSweepLights == 3));
-    RPU_SetLampState(BONUS_5, (AttractSweepLights == 4));
-    RPU_SetLampState(BONUS_6, (AttractSweepLights == 5));
+    RPU_SetLampState(BONUS_1, (AttractSweepLights >= 0 && AttractSweepLights <= 1),  (AttractSweepLights != 0));
+    RPU_SetLampState(BONUS_2, (AttractSweepLights >= 0 && AttractSweepLights <= 2),  (AttractSweepLights != 1));
+    RPU_SetLampState(BONUS_3, (AttractSweepLights >= 1 && AttractSweepLights <= 3),  (AttractSweepLights != 2));
+    RPU_SetLampState(BONUS_4, (AttractSweepLights >= 2 && AttractSweepLights <= 4),  (AttractSweepLights != 3));
+    RPU_SetLampState(BONUS_5, (AttractSweepLights >= 3 && AttractSweepLights <= 5),  (AttractSweepLights != 4));
+    RPU_SetLampState(BONUS_6, (AttractSweepLights >= 4 && AttractSweepLights <= 6),  (AttractSweepLights != 5));
 
     // Step 6: Flanking 3X and Shoot Again line up alongside Bonus 7
-    RPU_SetLampState(BONUS_7,     (AttractSweepLights == 6));
-    RPU_SetLampState(BONUS_3X,    (AttractSweepLights == 6));
-    RPU_SetLampState(SHOOT_AGAIN, (AttractSweepLights == 6));
+    boolean step6Active = (AttractSweepLights >= 5 && AttractSweepLights <= 7);
+    RPU_SetLampState(BONUS_7,     step6Active, (AttractSweepLights != 6));
+    RPU_SetLampState(BONUS_3X,    step6Active, (AttractSweepLights != 6));
+    RPU_SetLampState(SHOOT_AGAIN, step6Active, (AttractSweepLights != 6));
 
     // Step 7: Flanking 2X/5X and both Outlanes line up alongside Bonus 8
-    RPU_SetLampState(BONUS_8,          (AttractSweepLights == 7));
-    RPU_SetLampState(BONUS_2X,         (AttractSweepLights == 7));
-    RPU_SetLampState(BONUS_5X,         (AttractSweepLights == 7));
-    RPU_SetLampState(LEFT_OUTLANE_50,  (AttractSweepLights == 7));
-    RPU_SetLampState(RIGHT_OUTLANE_50, (AttractSweepLights == 7));
+    boolean step7Active = (AttractSweepLights >= 6 && AttractSweepLights <= 8);
+    RPU_SetLampState(BONUS_8,          step7Active, (AttractSweepLights != 7));
+    RPU_SetLampState(BONUS_2X,         step7Active, (AttractSweepLights != 7));
+    RPU_SetLampState(BONUS_5X,         step7Active, (AttractSweepLights != 7));
+    RPU_SetLampState(LEFT_OUTLANE_50,  step7Active, (AttractSweepLights != 7));
+    RPU_SetLampState(RIGHT_OUTLANE_50, step7Active, (AttractSweepLights != 7));
 
     // Steps 8-9: Top of column splitting to "T" branches
-    RPU_SetLampState(BONUS_9,  (AttractSweepLights == 8));
-    RPU_SetLampState(BONUS_10, (AttractSweepLights == 9));
-    RPU_SetLampState(BONUS_20, (AttractSweepLights == 9));
+    RPU_SetLampState(BONUS_9,  (AttractSweepLights >= 7 && AttractSweepLights <= 9),   (AttractSweepLights != 8));
+    RPU_SetLampState(BONUS_10, (AttractSweepLights >= 8 && AttractSweepLights <= 10),  (AttractSweepLights != 9));
+    RPU_SetLampState(BONUS_20, (AttractSweepLights >= 8 && AttractSweepLights <= 10),  (AttractSweepLights != 9));
 
     // Step 10: Horizontal Middle AB line ignites completely
-    RPU_SetLampState(AB_SCORES_1000,    (AttractSweepLights == 10));
-    RPU_SetLampState(AB_SCORES_2000,    (AttractSweepLights == 10));
-    RPU_SetLampState(AB_SCORES_3000,    (AttractSweepLights == 10));
-    RPU_SetLampState(AB_SCORES_4000,    (AttractSweepLights == 10));
-    RPU_SetLampState(AB_SCORES_5000,    (AttractSweepLights == 10));
-    RPU_SetLampState(AB_SCORES_EB,      (AttractSweepLights == 10));
-    RPU_SetLampState(AB_SCORES_SPECIAL, (AttractSweepLights == 10));
+    boolean step10Active = (AttractSweepLights >= 9 && AttractSweepLights <= 11);
+    RPU_SetLampState(AB_SCORES_1000,    step10Active, (AttractSweepLights != 10));
+    RPU_SetLampState(AB_SCORES_2000,    step10Active, (AttractSweepLights != 10));
+    RPU_SetLampState(AB_SCORES_3000,    step10Active, (AttractSweepLights != 10));
+    RPU_SetLampState(AB_SCORES_4000,    step10Active, (AttractSweepLights != 10));
+    RPU_SetLampState(AB_SCORES_5000,    step10Active, (AttractSweepLights != 10));
+    RPU_SetLampState(AB_SCORES_EB,      step10Active, (AttractSweepLights != 10));
+    RPU_SetLampState(AB_SCORES_SPECIAL, step10Active, (AttractSweepLights != 10));
 
     // Step 11: A & B Lane pairs and Target Scores Special horizontal bridge
-    RPU_SetLampState(LAST_TARGET_SCORES_SPECIAL, (AttractSweepLights == 11));
-    RPU_SetLampState(A_LANE,                     (AttractSweepLights == 11));
-    RPU_SetLampState(B_LANE,                     (AttractSweepLights == 11));
+    boolean step11Active = (AttractSweepLights >= 10 && AttractSweepLights <= 12);
+    RPU_SetLampState(LAST_TARGET_SCORES_SPECIAL, step11Active, (AttractSweepLights != 11));
+    RPU_SetLampState(A_LANE,                     step11Active, (AttractSweepLights != 11));
+    RPU_SetLampState(B_LANE,                     step11Active, (AttractSweepLights != 11));
 
     // Step 12: Upper Pop Bumper zone and 2X Potential flash
-    RPU_SetLampState(POP_BUMPER_1,       (AttractSweepLights == 12));
-    RPU_SetLampState(POP_BUMPER_2,       (AttractSweepLights == 12));
-    RPU_SetLampState(BONUS_2X_POTENTIAL, (AttractSweepLights == 12));
+    boolean step12Active = (AttractSweepLights >= 11 && AttractSweepLights <= 13);
+    RPU_SetLampState(POP_BUMPER_1,       step12Active, (AttractSweepLights != 12));
+    RPU_SetLampState(POP_BUMPER_2,       step12Active, (AttractSweepLights != 12));
+    RPU_SetLampState(BONUS_2X_POTENTIAL, step12Active, (AttractSweepLights != 12));
 
     // Step 13: 3X and 5X Potential apex payoff flash
-    RPU_SetLampState(BONUS_3X_POTENTIAL, (AttractSweepLights == 13));
-    RPU_SetLampState(BONUS_5X_POTENTIAL, (AttractSweepLights == 13));
+    RPU_SetLampState(BONUS_3X_POTENTIAL, (AttractSweepLights == 12 || AttractSweepLights == 13), (AttractSweepLights != 13));
+    RPU_SetLampState(BONUS_5X_POTENTIAL, (AttractSweepLights == 12 || AttractSweepLights == 13), (AttractSweepLights != 13));
+
 
   } else {
     // --- STAGE 2: THE CROSS-FADING GRID MATRIX (Perfect 1010101 Symmetry) ---
@@ -2198,21 +2212,42 @@ int ManageGameMode() {
 
     case GAME_MODE_AB_LANES:
       if (GameModeEndTime==0) {
-        OverrideScoreDisplay(CurrentPlayer, ABLaneGoal[CurrentPlayer], true);
         // First time we're in this mode
         GameModeEndTime = GameModeStartTime + 1000*MODE_LENGTH_IN_SECONDS;
+        // LastABHitTime = CurrentTime; 
+        LastABReportedValue = -1; 
       }
+      { int abGoalsLeft = ABLaneGoal[CurrentPlayer];
+        if (abGoalsLeft >= 0) {
+          if (LastABReportedValue != abGoalsLeft) {
+            // Push the fresh remaining target number to the display once
+            RPU_SetDisplayCredits(abGoalsLeft, true, true); 
+            CurrentlyShowingABHits = true;
+            LastABReportedValue = abGoalsLeft;
+          } else {
+            // Tell the system to actively hold and flash/refresh this temporary override text
+            RPU_SetDisplayFlashCredits(CurrentTime, 100); 
+          }
+        }
+          CurrentlyShowingABHits = true;
+        }
+
       if (CurrentTime>GameModeEndTime || !ABLaneGoal[CurrentPlayer]) {
         ShowPlayerScores(0xFF, false, false);
         GameMode = GAME_MODE_QUALIFY_SELECT;
 
+        CurrentlyShowingABHits = false;
+        LastABReportedValue = -1;
+
         if (ABLaneGoal[CurrentPlayer]<=(NUM_ORBITS_IN_AB_GOAL/2)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_AB_LANES;
-        }
 
+        }
          else if (CurrentTime > GameModeEndTime) {
           PlaySoundEffect(SOUND_EFFECT_TIMEOUT); // Fires the timeout failure chime
+
         }
+        RPU_SetDisplayCredits(Credits, true, true);
         // --- Clear AB Status
         LastAHit = 0;
         LastBHit = 0;
@@ -2221,14 +2256,26 @@ int ManageGameMode() {
 
     case GAME_MODE_LEFT_DROP_TARGETS:
       if (GameModeEndTime==0) {
-        OverrideScoreDisplay(CurrentPlayer, LeftTargetGoal[CurrentPlayer], true);
         // First time we're in this mode
         GameModeEndTime = GameModeStartTime + 1000*MODE_LENGTH_IN_SECONDS;        
         RPU_PushToTimedSolenoidStack(SOL_LEFT_DROP_TARGETS, 15, CurrentTime + 100);
+        LastABReportedValue = -1;
+      }
+      {
+        int leftDropsLeft = LeftTargetGoal[CurrentPlayer];
+        if (leftDropsLeft >= 0) {
+          if (LastABReportedValue != leftDropsLeft) {
+            RPU_SetDisplayCredits(leftDropsLeft, true, true); 
+            LastABReportedValue = leftDropsLeft;
+          } else {
+            RPU_SetDisplayFlashCredits(CurrentTime, 100); 
+          }
+        }
       }
       if (CurrentTime>GameModeEndTime || !LeftTargetGoal[CurrentPlayer]) {
         ShowPlayerScores(0xFF, false, false);
         GameMode = GAME_MODE_QUALIFY_SELECT;
+
         if (LeftTargetGoal[CurrentPlayer]<=(NUM_LEFT_TARGETS_GOAL/2)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_LEFT_DROPS;
         }
@@ -2240,6 +2287,7 @@ int ManageGameMode() {
         RPU_PushToTimedSolenoidStack(SOL_RIGHT_DROP_TARGETS, 15, CurrentTime + 100 + 150); // Safe 150ms stagger
         LeftDropTargetStatus = 0;   // Reset internal memory registers
         RightDropTargetStatus = 0;
+        RPU_SetDisplayCredits(Credits, true, true);
         // --- Clear AB Status
         LastAHit = 0;
         LastBHit = 0; 
@@ -2248,15 +2296,26 @@ int ManageGameMode() {
 
     case GAME_MODE_RIGHT_DROP_TARGETS:
       if (GameModeEndTime==0) {
-        OverrideScoreDisplay(CurrentPlayer, RightTargetGoal[CurrentPlayer], true);
         // First time we're in this mode
-        GameModeEndTime = GameModeStartTime + 1000*MODE_LENGTH_IN_SECONDS;
+        GameModeEndTime = GameModeStartTime + 1000*MODE_LENGTH_IN_SECONDS;        
         RPU_PushToTimedSolenoidStack(SOL_RIGHT_DROP_TARGETS, 15, CurrentTime + 100);
+        LastABReportedValue = -1;
+      }
+      {
+        int rightDropsLeft = RightTargetGoal[CurrentPlayer];
+        if (rightDropsLeft >= 0) {
+          if (LastABReportedValue != rightDropsLeft) {
+            RPU_SetDisplayCredits(rightDropsLeft, true, true); 
+            LastABReportedValue = rightDropsLeft;
+          } else {
+            RPU_SetDisplayFlashCredits(CurrentTime, 100); 
+          }
+        }
       }
       if (CurrentTime>GameModeEndTime || !RightTargetGoal[CurrentPlayer]) {
         ShowPlayerScores(0xFF, false, false);
         GameMode = GAME_MODE_QUALIFY_SELECT;
-        if (RightTargetGoal[CurrentPlayer]<=(NUM_RIGHT_TARGETS_GOAL / 2)) {
+        if (RightTargetGoal[CurrentPlayer]<=(NUM_RIGHT_TARGETS_GOAL/2)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_RIGHT_DROPS;
         }
         else if (CurrentTime > GameModeEndTime) {
@@ -2268,16 +2327,28 @@ int ManageGameMode() {
         LeftDropTargetStatus = 0;   // Reset internal memory registers
         RightDropTargetStatus = 0;
         // --- Clear AB Status
+        RPU_SetDisplayCredits(Credits, true, true);
         LastAHit = 0;
-        LastBHit = 0;
+        LastBHit = 0; 
       }
     break;
 
     case GAME_MODE_POP_BUMPERS:
       if (GameModeEndTime==0) {
-        OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
         // First time we're in this mode
         GameModeEndTime = GameModeStartTime + 1000*MODE_LENGTH_IN_SECONDS;
+        LastABReportedValue = -1;
+      }
+      {
+        int bumpersLeft = PopBumperGoal[CurrentPlayer];
+        if (bumpersLeft >= 0) {
+          if (LastABReportedValue != bumpersLeft) {
+            RPU_SetDisplayCredits(bumpersLeft, true, true); 
+            LastABReportedValue = bumpersLeft;
+          } else {
+            RPU_SetDisplayFlashCredits(CurrentTime, 100); 
+          }
+        }
       }
       if (CurrentTime>GameModeEndTime || !PopBumperGoal[CurrentPlayer]) {
         ShowPlayerScores(0xFF, false, false);
@@ -2288,6 +2359,7 @@ int ManageGameMode() {
         else if (CurrentTime > GameModeEndTime) {
           PlaySoundEffect(SOUND_EFFECT_TIMEOUT); // Fires the timeout failure chime
         }
+        RPU_SetDisplayCredits(Credits, true, true);
         // --- Clear AB Status
         LastAHit = 0;
         LastBHit = 0;
@@ -2296,13 +2368,25 @@ int ManageGameMode() {
 
     case GAME_MODE_SLINGS_AND_LANES:
       if (GameModeEndTime==0) {
-        OverrideScoreDisplay(CurrentPlayer, SlingsAndLanesGoal[CurrentPlayer], true);
         // First time we're in this mode
         GameModeEndTime = GameModeStartTime + 1000*MODE_LENGTH_IN_SECONDS;
+        LastABReportedValue = -1;
+      }
+      {
+        int slingsLeft = SlingsAndLanesGoal[CurrentPlayer];
+        if (slingsLeft >= 0) {
+          if (LastABReportedValue != slingsLeft) {
+            RPU_SetDisplayCredits(slingsLeft, true, true); 
+            LastABReportedValue = slingsLeft;
+          } else {
+            RPU_SetDisplayFlashCredits(CurrentTime, 100); 
+          }
+        }
       }
       if (CurrentTime>GameModeEndTime || !SlingsAndLanesGoal[CurrentPlayer]) {
         ShowPlayerScores(0xFF, false, false);
         GameMode = GAME_MODE_QUALIFY_SELECT;
+
         if (SlingsAndLanesGoal[CurrentPlayer]<=(NUM_SLINGS_AND_INLANES/2)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_SLINGS_AND_LANES;
         }
@@ -2310,6 +2394,7 @@ int ManageGameMode() {
           PlaySoundEffect(SOUND_EFFECT_TIMEOUT); // Fires the timeout failure chime
         }
         // --- Clear AB Status
+        RPU_SetDisplayCredits(Credits, true, true);
         LastAHit = 0;
         LastBHit = 0;
       }
@@ -2324,14 +2409,25 @@ int ManageGameMode() {
         
         MachineState = MACHINE_STATE_WIZARD_MODE; 
         PlaySoundEffect(SOUND_EFFECT_MACHINE_START); // Start the grand finale theme song
-        OverrideScoreDisplay(CurrentPlayer, WizardModeTimeLimit, true);
+
+            for (byte i = 0; i < 4; i++) {
+              // If the index is NOT the person currently playing, hijack their screen for the clock!
+                 if (i != CurrentPlayer) {
+                 OverrideScoreDisplay(i, WizardModeTimeLimit, false);
+                 }
+            }
         lastSecondChecked = WizardModeTimeLimit; 
       }
 
       // 2. LIVE COUNTDOWN LOGIC
       long secondsLeft = (GameModeEndTime - CurrentTime) / 1000;
       if (secondsLeft >= 0) {
-        OverrideScoreDisplay(CurrentPlayer, secondsLeft, true); // Keep the countdown clock on the display
+
+        for (byte i = 0; i < 4; i++) {
+          if (i != CurrentPlayer) {
+            OverrideScoreDisplay(i, secondsLeft, false);
+          }
+        }
         
         // Every 1 second (1000ms), flash your pacing chime to pressure the player
         if (secondsLeft != lastSecondChecked) {
@@ -3156,7 +3252,6 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             if (SlingsAndLanesGoal[CurrentPlayer]) {
               SlingsAndLanesGoal[CurrentPlayer] -= 1;
               LastModeShotTime = CurrentTime;
-              OverrideScoreDisplay(CurrentPlayer, SlingsAndLanesGoal[CurrentPlayer], true);
             }
           } 
           // 3. Standard operational gameplay fallback (500 Points)
@@ -3171,12 +3266,12 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
 
         case SW_LEFT_A_LANE:
         case SW_TOP_A_LANE:
-          LastAHit = CurrentTime; 
+          LastAHit = CurrentTime;
           if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           
           // 1. ACTIVE MODE GATE: If a specialized mode is active, handle scoring independently
           if (GameMode != GAME_MODE_QUALIFY_SELECT && GameMode != GAME_MODE_SELECT_MODE && GameMode != GAME_MODE_SKILL_SHOT) {
-            
+
             // If the active mode is specifically the AB Lanes mission, score high mission points
             if (GameMode == GAME_MODE_AB_LANES) {
               CurrentScores[CurrentPlayer] += 3000; // Escalated mission reward
@@ -3185,7 +3280,6 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
               if (ABLaneGoal[CurrentPlayer]) {
                 ABLaneGoal[CurrentPlayer] -= 1;
                 LastModeShotTime = CurrentTime;
-                OverrideScoreDisplay(CurrentPlayer, ABLaneGoal[CurrentPlayer], true);
               }
             } 
             // For any other mode (like Drop Targets or Pop Bumpers), just award a basic 500-point hit
@@ -3205,7 +3299,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
 
         case SW_TOP_B_LANE:
         case SW_RIGHT_B_LANE:
-          LastBHit = CurrentTime; 
+          LastBHit = CurrentTime;
           if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           
           // 1. ACTIVE MODE GATE: If a specialized mode is active, handle scoring independently
@@ -3214,25 +3308,21 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             if (GameMode == GAME_MODE_AB_LANES) {
               CurrentScores[CurrentPlayer] += 3000; 
               PlaySoundEffect(SOUND_EFFECT_AB_LANE_3);
-              
               if (ABLaneGoal[CurrentPlayer]) {
                 ABLaneGoal[CurrentPlayer] -= 1;
                 LastModeShotTime = CurrentTime;
-                OverrideScoreDisplay(CurrentPlayer, ABLaneGoal[CurrentPlayer], true);
               }
             } 
             else {
               CurrentScores[CurrentPlayer] += 500;
               PlaySoundEffect(SOUND_EFFECT_AB_LANE_1);
-            }
-            
+            }     
           } 
           // 2. STANDARD GAMEPLAY: Only run progressive math functions when in normal play
           else {
             AddABLaneState(true);
             AddABLaneScore();
           }
-
           AddToBonus(1);
         break;
 
@@ -3360,22 +3450,6 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           AddToBonus(3);
         break;
         
-        case SW_RIGHT_DROP_TARGET_1:
-        case SW_RIGHT_DROP_TARGET_2:
-        case SW_RIGHT_DROP_TARGET_3:
-        case SW_RIGHT_DROP_TARGET_4:
-          HandleRightDropTargetHit(switchHit);
-          if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
-          if (GameMode == GAME_MODE_WIZARD) CurrentScores[CurrentPlayer] += WizardSwitchReward;
-          if (GameMode==GAME_MODE_RIGHT_DROP_TARGETS && RightTargetGoal[CurrentPlayer]) {
-            RightTargetGoal[CurrentPlayer] -= 1;
-            LastModeShotTime = CurrentTime;
-            OverrideScoreDisplay(CurrentPlayer, RightTargetGoal[CurrentPlayer], true);
-            AddToBonus(1);
-          }
-          AddToBonus(1);
-        break;
-
         case SW_LEFT_DROP_TARGET_1:
         case SW_LEFT_DROP_TARGET_2:
         case SW_LEFT_DROP_TARGET_3:
@@ -3386,7 +3460,21 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           if (GameMode==GAME_MODE_LEFT_DROP_TARGETS && LeftTargetGoal[CurrentPlayer]) {
             LeftTargetGoal[CurrentPlayer] -= 1;
             LastModeShotTime = CurrentTime;
-            OverrideScoreDisplay(CurrentPlayer, LeftTargetGoal[CurrentPlayer], true);
+            AddToBonus(1);
+          }
+          AddToBonus(1);
+        break;
+
+        case SW_RIGHT_DROP_TARGET_1:
+        case SW_RIGHT_DROP_TARGET_2:
+        case SW_RIGHT_DROP_TARGET_3:
+        case SW_RIGHT_DROP_TARGET_4:
+          HandleRightDropTargetHit(switchHit);
+          if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
+          if (GameMode == GAME_MODE_WIZARD) CurrentScores[CurrentPlayer] += WizardSwitchReward;
+          if (GameMode==GAME_MODE_RIGHT_DROP_TARGETS && RightTargetGoal[CurrentPlayer]) {
+            RightTargetGoal[CurrentPlayer] -= 1;
+            LastModeShotTime = CurrentTime;
             AddToBonus(1);
           }
           AddToBonus(1);
@@ -3415,7 +3503,6 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             if (PopBumperGoal[CurrentPlayer] > 0) {
               PopBumperGoal[CurrentPlayer] -= 1;
               LastModeShotTime = CurrentTime;
-              OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
             }            
             if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           }
@@ -3455,7 +3542,6 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             if (PopBumperGoal[CurrentPlayer] > 0) {
               PopBumperGoal[CurrentPlayer] -= 1;
               LastModeShotTime = CurrentTime;
-              OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
             }            
             if (PlayfieldValidation < 2 && BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           }
@@ -3494,7 +3580,6 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           if (GameMode==GAME_MODE_POP_BUMPERS && PopBumperGoal[CurrentPlayer]) {
             PopBumperGoal[CurrentPlayer] -= 1;
             LastModeShotTime = CurrentTime;
-            OverrideScoreDisplay(CurrentPlayer, PopBumperGoal[CurrentPlayer], true);
           }
         break;
 
@@ -3516,7 +3601,6 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
             if (SlingsAndLanesGoal[CurrentPlayer]) {
               SlingsAndLanesGoal[CurrentPlayer] -= 1;
               LastModeShotTime = CurrentTime;
-              OverrideScoreDisplay(CurrentPlayer, SlingsAndLanesGoal[CurrentPlayer], true);
             }
           } 
           // 3. Standard operational gameplay
