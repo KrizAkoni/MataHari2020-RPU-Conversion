@@ -1,3 +1,5 @@
+2AUG2026: Fixed scrolling high score in attract mode.
+
 31JUL2026: Moved mode countdowns to credit window to not obscure scores. Wizard shows countdown on three that are not active player.
 
 30JUL2026: Fixed a mode progression bug - modes transition properly now. Implemented wizard mode with audible countdown. Wizaerd mode ball save. Fixed drop target tracker bugs. 

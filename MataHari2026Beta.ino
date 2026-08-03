@@ -983,43 +983,47 @@ void ShowPlayerScores(byte displayToUpdate, boolean flashCurrent, boolean dashCu
           continue;
         }
 
-        if (displayScore>999999) {
-          // Score needs to be scrolled
-          if ((CurrentTime-LastTimeScoreChanged)<5000) {
-            RPU_SetDisplay(scoreCount, displayScore%1000000, true);  
-          } else {
+if (displayScore > 999999) {
+  // Save the real score we want to display (works for both CurrentScores and allScoresShowValue)
+  unsigned long originalScore = displayScore;
 
-            // Scores are scrolled 10 digits and then we wait for 6
-            if (scrollPhase<11 && scrollPhaseChanged) {
-              byte numDigits = MagnitudeOfScore(displayScore);
-              
-              // Figure out top part of score
-              if (scrollPhase<6) {
-                displayMask = 0x3F;
-                for (byte scrollCount=0; scrollCount<scrollPhase; scrollCount++) {
-                  displayScore = (displayScore % 1000000) * 10;
-                  displayMask = displayMask >> 1;
-                }
-              } else {
-                displayScore = 0; 
-                displayMask = 0x00;
-              }
+  // Score needs to be scrolled
+  if ((CurrentTime - LastTimeScoreChanged) < 4000) {
+    RPU_SetDisplay(scoreCount, originalScore % 1000000, true);  
+  } else {
 
-              // Add in lower part of score
-              if ((numDigits+scrollPhase)>10) {
-                byte numDigitsNeeded = (numDigits+scrollPhase)-10;
-                unsigned long tempScore = CurrentScores[scoreCount];
-                for (byte scrollCount=0; scrollCount<(numDigits-numDigitsNeeded); scrollCount++) {
-                  tempScore /= 10;
-                }
-                displayMask |= GetDisplayMask(MagnitudeOfScore(tempScore));
-                displayScore += tempScore;
-              }
-              RPU_SetDisplayBlank(scoreCount, displayMask);
-              RPU_SetDisplay(scoreCount, displayScore);
-            }
-          }          
-        } else {
+    // Scores are scrolled 10 digits and then we wait for 6
+    if (scrollPhase < 11 && scrollPhaseChanged) {
+      byte numDigits = MagnitudeOfScore(originalScore);
+      
+      // Figure out top part of score
+      if (scrollPhase < 6) {
+        displayMask = 0x3F;
+        displayScore = originalScore;          // start from the real score
+        for (byte scrollCount = 0; scrollCount < scrollPhase; scrollCount++) {
+          displayScore = (displayScore % 1000000) * 10;
+          displayMask = displayMask >> 1;
+        }
+      } else {
+        displayScore = 0; 
+        displayMask = 0x00;
+      }
+
+      // Add in lower part of score
+      if ((numDigits + scrollPhase) > 10) {
+        byte numDigitsNeeded = (numDigits + scrollPhase) - 10;
+        unsigned long tempScore = originalScore;   // ← use the saved original, not CurrentScores
+        for (byte scrollCount = 0; scrollCount < (numDigits - numDigitsNeeded); scrollCount++) {
+          tempScore /= 10;
+        }
+        displayMask |= GetDisplayMask(MagnitudeOfScore(tempScore));
+        displayScore += tempScore;
+      }
+      RPU_SetDisplayBlank(scoreCount, displayMask);
+      RPU_SetDisplay(scoreCount, displayScore);
+    }
+  }          
+} else {
           if (flashCurrent) {
             unsigned long flashSeed = CurrentTime/250;
             if (flashSeed != LastFlashOrDash) {
@@ -1734,42 +1738,46 @@ int RunAttractMode(int curState, boolean curStateChanged) {
     AttractLastPlayfieldMode = 0;
   }
 
-  // Alternate displays between high score and blank
-  if ((CurrentTime / 6000) % 2 == 0) {
+// Alternate displays between high score and blank
+if ((CurrentTime / 10000) % 2 == 0) {
 
-    if (AttractLastHeadMode != 1) {
-      RPU_SetLampState(HIGH_SCORE_TO_DATE, 1, 0, 250);
-      RPU_SetLampState(GAME_OVER, 0);
-      SetPlayerLamps(0);
+  // Always assert the lamps while we are in this phase
+  RPU_SetLampState(HIGH_SCORE_TO_DATE, 1, 0, 250);
+  RPU_SetLampState(GAME_OVER, 0);
+  SetPlayerLamps(0);
 
-      RPU_SetDisplayCredits(Credits, true);
-      RPU_SetDisplayBallInPlay(0, true);
-      
-    }
-    AttractLastHeadMode = 1;
-    
-    if (CurrentTime > 30000) ShowPlayerScores(0xFF, false, false, HighScore);
-    else ShowPlayerScores(0xFF, false, false);
-
-  } else {
-    if (AttractLastHeadMode != 2) {
-      if (ResetScoresToClearVersion == true && CurrentTime > 30000) {
-        for (int count = 0; count < 4; count++) {
-          CurrentScores[count] = 0;
-        }
-        CurrentNumPlayers = 0;
-        ResetScoresToClearVersion = false;
-      }
-      RPU_SetLampState(HIGH_SCORE_TO_DATE, 0);
-      RPU_SetLampState(GAME_OVER, 1);
-      RPU_SetDisplayCredits(Credits, true);
-      RPU_SetDisplayBallInPlay(0, true);
-    }
-    ShowPlayerScores(0xFF, false, false);
-    
-    SetPlayerLamps(((CurrentTime / 250) % 4) + 1);
-    AttractLastHeadMode = 2;
+  if (AttractLastHeadMode != 1) {
+    RPU_SetDisplayCredits(Credits, true);
+    RPU_SetDisplayBallInPlay(0, true);
   }
+  AttractLastHeadMode = 1;
+  
+  if (CurrentTime > 20000) ShowPlayerScores(0xFF, false, false, HighScore);
+  else ShowPlayerScores(0xFF, false, false);
+
+} else {
+  // Always assert the lamps while we are in this phase
+  RPU_SetLampState(HIGH_SCORE_TO_DATE, 0);
+  RPU_SetLampState(GAME_OVER, 1);
+
+  if (AttractLastHeadMode != 2) {
+    if (ResetScoresToClearVersion == true && CurrentTime > 20000) {
+      for (int count = 0; count < 4; count++) {
+        CurrentScores[count] = 0;
+      }
+      CurrentNumPlayers = 0;
+      ResetScoresToClearVersion = false;
+    }
+    RPU_SetDisplayCredits(Credits, true);
+    RPU_SetDisplayBallInPlay(0, true);
+  }
+
+  ShowPlayerScores(0xFF, false, false);
+  SetPlayerLamps(((CurrentTime / 250) % 4) + 1);
+  AttractLastHeadMode = 2;
+}
+
+
 
   // ==========================================================================
   // 2. CUSTOM PLAYFIELD LAMP ANIMATION STACKS
