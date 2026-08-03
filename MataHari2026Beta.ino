@@ -30,9 +30,7 @@
 #include "RPU.h"
 #include "MataHari2020.h"
 #include "SelfTestAndAudit.h"
-//#include "DropTargets.h"
 #include "AudioHandler.h"
-//#include "LampAnimations.h"
 #include <EEPROM.h>
 
 // The defines for sound can be used separately or in combination
@@ -50,7 +48,6 @@ wavTrigger wTrig;             // Our WAV Trigger object
 #define MATAHARI2026_MAJOR_VERSION  2026
 #define MATAHARI2026_MINOR_VERSION  1
 #define DEBUG_MESSAGES  1
-
 
 // This constant defines how much gap is inserted between chime hits
 // during melodies and sound effects
@@ -116,7 +113,6 @@ boolean MachineStateChanged = true;
 #define MODE_STATUS_BIT_POP_BUMPERS       0x08
 #define MODE_STATUS_BIT_SLINGS_AND_LANES  0x10
 
-
 #define EEPROM_BALL_SAVE_BYTE           100
 #define EEPROM_FREE_PLAY_BYTE           101
 #define EEPROM_MUSIC_LEVEL_BYTE         102
@@ -180,9 +176,9 @@ boolean MachineStateChanged = true;
 #define AB_TIME_TO_QUALIFY_MODE         10
 #define NUM_ORBITS_IN_AB_GOAL           2 //5
 #define NUM_POP_BUMPERS_HIT_GOAL        2 //20
-#define NUM_LEFT_TARGETS_GOAL           1 //8
-#define NUM_RIGHT_TARGETS_GOAL          1 //8
-#define NUM_SLINGS_AND_INLANES          1 //15
+#define NUM_LEFT_TARGETS_GOAL           2 //8
+#define NUM_RIGHT_TARGETS_GOAL          2 //8
+#define NUM_SLINGS_AND_INLANES          2 //15
 
 
 /*********************************************************************
@@ -304,13 +300,6 @@ void DecodeDIPSwitchParameters() {
   MatchFeature = (dipBank2&0x10)?true:false;
   InitialBonusXPotential = (dipBank2 & 0x40) ? 2 : 1;
 
-  //BonusCountdown1000Steps = (dipBank2&0x20)?true:false;
-  //BothTargetSetsFor3X = (dipBank2&80)?true:false;
-
-  //MaximumNumber4Players = (dipBank3&0x01)?true:false; // not used in MataHAri
-  //WowExtraBall = (dipBank3&0x02)?true:false;
-  //StarSpecialOncePerBall = (dipBank3&0x20)?true:false;
- // SpecialLightAward = (dipBank3)>>6;
 }
 
 void ReadStoredParameters() {
@@ -374,10 +363,10 @@ void ReadStoredParameters() {
   AwardScores[0] = RPU_ReadULFromEEProm(RPU_AWARD_SCORE_1_EEPROM_START_BYTE);
   AwardScores[1] = RPU_ReadULFromEEProm(RPU_AWARD_SCORE_2_EEPROM_START_BYTE);
   AwardScores[2] = RPU_ReadULFromEEProm(RPU_AWARD_SCORE_3_EEPROM_START_BYTE);
-
 }
 
-
+//==================================================================
+//==================================================================
 void setup() {
 /*  
   if (DEBUG_MESSAGES) {
@@ -449,6 +438,7 @@ void SetPlayerLamps(byte numPlayers, byte playerOffset = 0, int flashPeriod = 0)
   }
 }
 
+//================================================================
 void ShowDropTargetSpecialLamp(byte mode, boolean isSpecialLit) {
   // RULE: The Special lamp should ONLY be active during QUALIFY_SELECT mode
   if (mode == GAME_MODE_QUALIFY_SELECT && isSpecialLit) {
@@ -458,6 +448,7 @@ void ShowDropTargetSpecialLamp(byte mode, boolean isSpecialLit) {
   }
 }
 
+//================================================================
 void ShowBonusOnTree(byte bonus, byte dim=0) {
   if (bonus>MAX_DISPLAY_BONUS) bonus = MAX_DISPLAY_BONUS;
 
@@ -485,10 +476,9 @@ void ShowBonusOnTree(byte bonus, byte dim=0) {
     if (count==(bonus-1)) RPU_SetLampState(BONUS_1+count, 1, dim);
     else RPU_SetLampState(BONUS_1+count, 0, dim);
   }
-
 }
 
-
+//================================================================
 void ShowBonusLights(byte mode, byte prospectiveMode, byte bonus) {
   if (mode==GAME_MODE_QUALIFY_SELECT) {
     unsigned long mostRecentHit = LastAHit;
@@ -539,32 +529,34 @@ void ShowBonusLights(byte mode, byte prospectiveMode, byte bonus) {
   }
 }
 
+//================================================================
 void ShowBonusXLights(byte mode, byte prospectiveMode, byte bonusX, unsigned long lastSlingAndLaneHit) {
   if (mode==GAME_MODE_SELECT_MODE) {  
     if (prospectiveMode==GAME_MODE_SLINGS_AND_LANES) {
       byte lightPhase = ((CurrentTime-GameModeStartTime)/300)%2;
-      RPU_SetLampState(BONUS_2X, (lightPhase==0)?1:0, 1);
-      RPU_SetLampState(BONUS_3X, (lightPhase==0)?1:0, 1);
-      RPU_SetLampState(BONUS_5X, (lightPhase==1)?1:0, 1);
-      RPU_SetLampState(SHOOT_AGAIN, (lightPhase==1)?1:0, 1);
+      RPU_SetLampState(BONUS_2X, (lightPhase==0)?1:0);
+      RPU_SetLampState(BONUS_3X, (lightPhase==1)?1:0);
+      RPU_SetLampState(BONUS_5X, (lightPhase==0)?1:0);
+      RPU_SetLampState(SHOOT_AGAIN, (lightPhase==1)?1:0);
     } else {
       RPU_SetLampState(BONUS_2X, (bonusX==2)?1:0);
       RPU_SetLampState(BONUS_3X, (bonusX==3)?1:0);
       RPU_SetLampState(BONUS_5X, (bonusX==5)?1:0);
-      RPU_SetLampState(SHOOT_AGAIN, (SamePlayerShootsAgain)?1:0);
-      
     }
   } else if (mode==GAME_MODE_SLINGS_AND_LANES) {
-    if ((CurrentTime-lastSlingAndLaneHit)<500) {
-      RPU_SetLampState(BONUS_2X, (bonusX==2)?1:0);
-      RPU_SetLampState(BONUS_3X, (bonusX==3)?1:0);
-      RPU_SetLampState(BONUS_5X, (bonusX==5)?1:0);
-    } else {
-      RPU_SetLampState(BONUS_2X, (bonusX==2)?1:0, 1);
-      RPU_SetLampState(BONUS_3X, (bonusX==3)?1:0, 1);
-      RPU_SetLampState(BONUS_5X, (bonusX==5)?1:0, 1);
-    }
-
+      if ((CurrentTime-lastSlingAndLaneHit)<400) {
+        // Solid (no flash) right after a hit
+        RPU_SetLampState(BONUS_2X, 1);
+        RPU_SetLampState(BONUS_3X, 1);
+        RPU_SetLampState(BONUS_5X, 1);
+        RPU_SetLampState(SHOOT_AGAIN, 1);
+     } else {
+        // Flash the active multiplier
+        RPU_SetLampState(BONUS_2X, 1, 0, 250);
+        RPU_SetLampState(BONUS_3X, 1, 0, 250);
+        RPU_SetLampState(BONUS_5X, 1, 0, 250);
+        RPU_SetLampState(SHOOT_AGAIN, 1, 0, 250);
+     }
   } else {
     RPU_SetLampState(BONUS_2X, (bonusX==2)?1:0);
     RPU_SetLampState(BONUS_3X, (bonusX==3)?1:0);
@@ -572,6 +564,7 @@ void ShowBonusXLights(byte mode, byte prospectiveMode, byte bonusX, unsigned lon
   }
 }
 
+//================================================================
 void ShowOutlanes(byte mode, byte prospectiveMode, bool leftOutlaneLit, bool rightOutlaneLit, unsigned long lastSlingAndLaneHit) {
   //Outlane Swapper
   boolean leftWants50K = (BonusXPotential == 5);
@@ -607,21 +600,19 @@ void ShowOutlanes(byte mode, byte prospectiveMode, bool leftOutlaneLit, bool rig
   } else {
     RPU_SetLampState(LEFT_OUTLANE_50, (leftOutlaneLit)?1:0);
     RPU_SetLampState(RIGHT_OUTLANE_50, (rightOutlaneLit)?1:0);
-  }
-   
+  } 
 }
 
+//================================================================
 // Saucer Lamp Control
+//================================================================
 unsigned long LastShowSaucerLamps = 0;
 void ShowSaucerLamps(byte mode) {
-
-
 // ------------------------------------------------------------------
   // 1. ACTIVE WIZARD FRENZY LIGHTS (Highest Priority)
   // ------------------------------------------------------------------
   if (mode == GAME_MODE_WIZARD) {
-    // While the 30-second celebration is active, strobe all three 
-    // saucer inserts together in a fast, hyper-intense blinding pulse!
+    // While the 30-second celebration is active, strobe all three saucer inserts together!
     RPU_SetLampState(BONUS_2X_POTENTIAL, 1);      
     RPU_SetLampState(BONUS_3X_POTENTIAL, 1);      
     RPU_SetLampState(BONUS_5X_POTENTIAL, 1);
@@ -642,17 +633,17 @@ void ShowSaucerLamps(byte mode) {
   }
 
 
-//  if ((CurrentTime-LastShowSaucerLamps)<250) return;
   LastShowSaucerLamps = CurrentTime;
-  
   if (mode==GAME_MODE_SKILL_SHOT) {
     byte lightPhase = ((CurrentTime-GameModeStartTime)/250)%24;
     if (lightPhase>14) {
       lightPhase-=15;
+      SkillShotRunning = true;
       RPU_SetLampState(BONUS_2X_POTENTIAL, (lightPhase%3)==0);      
       RPU_SetLampState(BONUS_3X_POTENTIAL, (lightPhase%3)==1);      
       RPU_SetLampState(BONUS_5X_POTENTIAL, (lightPhase%3)==2);      
     } else {
+      SkillShotRunning = false;
       RPU_SetLampState(BONUS_2X_POTENTIAL, 0);
       RPU_SetLampState(BONUS_3X_POTENTIAL, 0);
       RPU_SetLampState(BONUS_5X_POTENTIAL, 0);
@@ -673,7 +664,7 @@ void ShowSaucerLamps(byte mode) {
   }
 }
 
-
+//================================================================
 void ShowPopBumperLamps(byte mode, byte prospectiveMode, byte popStatus, unsigned long lastTimePopBumperHit) {
 if (mode == GAME_MODE_SELECT_MODE) {
     byte lightPhase = ((CurrentTime - GameModeStartTime) / 200) % 2;
@@ -709,6 +700,7 @@ if (mode == GAME_MODE_SELECT_MODE) {
   }
 }
 
+//================================================================
 void ShowABLamps(byte mode, byte prospectiveMode, byte abStatus) {
   bool showABStatus = false;
   
@@ -783,9 +775,7 @@ void ShowABLamps(byte mode, byte prospectiveMode, byte abStatus) {
   }
 }
 
-byte ProspectiveModeShown = 0;
-unsigned long LastABReportTime = 0;
-
+//================================================================
 void ShowABRewardLamps(byte mode, byte prospectiveMode, byte abStatus) {
 
   byte modeShown = mode;
@@ -820,19 +810,6 @@ void ShowABRewardLamps(byte mode, byte prospectiveMode, byte abStatus) {
         RPU_SetLampState(AB_SCORES_SPECIAL, (phase%2)?0:1);
       }
     
-    /* commented this block out because it was misaligned with the displayed score lamps, starting at 2K
-    } else {
-      byte abWillScore = (abStatus&0x0F);
-      byte bStatus = (abStatus&0xF0)>>4;
-      if (bStatus<abWillScore) abWillScore = bStatus;
-      
-      // Show the current state of the AB reward
-      for (int count=0; count<7; count++) {
-        RPU_SetLampState(AB_SCORES_1000+count, (count==abWillScore)?1:0, 0);  
-      }
-    }
-    */
-    //There may be an underlying bug - I just offset the count by -1 to fix the table display
       } else {
         byte abWillScore = (abStatus&0x0F);
         byte bStatus = (abStatus&0xF0)>>4;
@@ -851,15 +828,11 @@ void ShowABRewardLamps(byte mode, byte prospectiveMode, byte abStatus) {
   }
 }
 
-
-byte BallSaveShown = false;
-byte BallSaveHurryUp = false;
-
-
+//================================================================
 void ShowSamePlayerLamps(byte mode, byte prospectiveMode) {
 
   // Skip lamp updates in this specific mode transition - the mode uses these lamps to attract
-  if (mode == GAME_MODE_SELECT_MODE && prospectiveMode == GAME_MODE_SLINGS_AND_LANES) {
+  if ((mode == GAME_MODE_SELECT_MODE && prospectiveMode == GAME_MODE_SLINGS_AND_LANES) || (mode == GAME_MODE_SLINGS_AND_LANES)) {
     return;
   }
 
@@ -913,6 +886,7 @@ byte MagnitudeOfScore(unsigned long score) {
   return retval;
 }
 
+//================================================================
 void OverrideScoreDisplay(byte displayNum, unsigned long value, boolean animate) {
   if (displayNum>3) return;
   ScoreOverrideStatus |= (0x10<<displayNum);
@@ -929,7 +903,7 @@ byte GetDisplayMask(byte numDigits) {
   return displayMask;
 }
 
-
+//================================================================
 void ShowPlayerScores(byte displayToUpdate, boolean flashCurrent, boolean dashCurrent, unsigned long allScoresShowValue=0) {
 
   if (displayToUpdate==0xFF) ScoreOverrideStatus = 0;
@@ -1061,7 +1035,6 @@ if (displayScore > 999999) {
       } // End if this display should be updated
     } // End on non-overridden
   } // End loop on scores
-  
 }
 
 
@@ -1099,6 +1072,7 @@ boolean AddPlayer(boolean resetNumPlayers = false) {
   return true;
 }
 
+//================================================================
 void AddCoinToAudit(byte switchHit) {
 
   unsigned short coinAuditStartByte = 0;
@@ -1112,7 +1086,6 @@ void AddCoinToAudit(byte switchHit) {
   if (coinAuditStartByte) {
     RPU_WriteULToEEProm(coinAuditStartByte, RPU_ReadULFromEEProm(coinAuditStartByte) + 1);
   }
-
 }
 
 boolean GetLeftOutlane(byte playerNum) {
@@ -1122,7 +1095,6 @@ boolean GetLeftOutlane(byte playerNum) {
 void SetLeftOutlane(byte playerNum) {
   LeftOutlane |= (1<<playerNum);
 }
-
 boolean GetRightOutlane(byte playerNum) {
   return (RightOutlane&(1<<playerNum))?true:false;
 }
@@ -1448,182 +1420,10 @@ void PlaySoundEffect(byte soundEffectNum) {
   }
 #endif
 
-//#ifdef USE_CHIMES
-  // If the user selects electronic sounds, don't do chimes
-//  if (MusicLevel > 3) return;
 
-
-//  unsigned long count;
-/*
-  switch (soundEffectNum) {
-    case SOUND_EFFECT_ADD_PLAYER:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime, true);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime, true);
-      if (MusicLevel>1) {
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+200, true);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+400, true);
-      }    
-    break;
-    case SOUND_EFFECT_BALL_OVER:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime, true);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime+166, true);
-      if (MusicLevel>1) {
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+250, true);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+500, true);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+750, true);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime+1000, true);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+1166, true);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+1250, true);
-      }
-    break;
-    case SOUND_EFFECT_GAME_OVER:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime, true);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+166, true);
-      if (MusicLevel>1) {
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+250, true);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+500, true);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+666, true);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime+750, true);
-      }
-    break;
-    case SOUND_EFFECT_MACHINE_START:
-    case SOUND_EFFECT_PLAYER_UP:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime, true);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 1, CurrentTime+500, true);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+600, true);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+900, true);
-    break;
-    case SOUND_EFFECT_ADD_CREDIT:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime, true);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+75, true);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+150, true);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+225, true);
-    break;
-    case SOUND_EFFECT_BONUS_COUNT:
-    case SOUND_EFFECT_MATCH_SPIN:
-    case SOUND_EFFECT_10PT_SWITCH:
-    case SOUND_EFFECT_SLING_SHOT:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime);
-    break;
-    case SOUND_EFFECT_2X_BONUS_COUNT:
-    case SOUND_EFFECT_3X_BONUS_COUNT:
-    case SOUND_EFFECT_BUMPER:
-    case SOUND_EFFECT_OUTLANE_UNLIT:
-    case SOUND_EFFECT_DROP_TARGET:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime);
-    break;
-    case SOUND_EFFECT_BUMPER_LIT:
-    case SOUND_EFFECT_5X_BONUS_COUNT:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime);
-    break;
-    case SOUND_EFFECT_OUTLANE_LIT:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+100);
-      if (MusicLevel>1) {
-        for (count=0; count<4; count++) { 
-          RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+200+count*200);
-          RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+300+count*200);
-        }
-      }
-    break;
-    case SOUND_EFFECT_AB_LANE_1:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime);
-      if (MusicLevel>1) {
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+200);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+300);
-      }
-    break;
-    case SOUND_EFFECT_AB_LANE_2:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime);
-      if (MusicLevel>1) {
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime+250);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+250);
-      }
-    break;
-    case SOUND_EFFECT_AB_LANE_3:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime);
-      if (MusicLevel>1) {
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+200);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime+300);
-      }
-    break;
-    case SOUND_EFFECT_INLANE:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+100);
-    break;
-    case SOUND_EFFECT_EXTRA_BALL:
-    case SOUND_EFFECT_SKILL_SHOT:
-      for (count=0; count<2; count++) {
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime + count*150);
-        if (MusicLevel>1) {
-          RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+25 + count*150);
-          RPU_PushToTimedSolenoidStack(SOL_CHIME_1000, 3, CurrentTime+50 + count*150);
-        }
-      }
-    break;
-    case SOUND_EFFECT_TILT_WARNING:
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime);
-      RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime+100);
-      if (MusicLevel>1) {
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_100, 3, CurrentTime+200);
-        RPU_PushToTimedSolenoidStack(SOL_CHIME_10, 3, CurrentTime+300);
-      }
-    break;
-  }    
-    
-*/
-
-/*  Old version, use the one below this
- *  This version of chimes (currently commented out) 
- *  moves the chime callouts from "storage space" to "dynamic memory"
- *  in order to free up space for more code. 
- *  I'm not using it for now because it's harder to setup/debug.
- * 
-  // Music level 3 = allow melodies to overlap
-  if (CurrentTime > NextSoundEffectTime || MusicLevel == 3) {
-    NextSoundEffectTime = CurrentTime;
-  } else if ( (NextSoundEffectTime - CurrentTime) > 2000 ) {
-    // if we already have two seconds of sound effects
-    // lined up, simply return
-    return;
-  }
-  //int count = 0;
-
-  unsigned long soundGapUL = (unsigned long)CHIME_SPACING_CONSTANT;
-  byte longestGap = 0;
-
-  // Look for chimes that need to be added based on the current sound effect
-  int arrayCount;
-  int arraySize;
-  ChimeEntry *chimeArray;
-  
-  for (arrayCount=0; arrayCount<MusicLevel*2; arrayCount++) {
-    switch (arrayCount) {
-      case 0: chimeArray = MataHariSFXLowPriorityLevel1; arraySize = sizeof(MataHariSFXLowPriorityLevel1)/sizeof(ChimeEntry); break;
-      case 1: chimeArray = MataHariSFXHighPriorityLevel1; arraySize = sizeof(MataHariSFXHighPriorityLevel1)/sizeof(ChimeEntry); break;
-      case 2: chimeArray = MataHariSFXLowPriorityLevel2; arraySize = sizeof(MataHariSFXLowPriorityLevel2)/sizeof(ChimeEntry); break;
-      case 3: chimeArray = MataHariSFXHighPriorityLevel2; arraySize = sizeof(MataHariSFXHighPriorityLevel2)/sizeof(ChimeEntry); break;
-      default: chimeArray = NULL;
-    }
-    if (chimeArray) {
-      for (count=0; count<arraySize; count++) {
-        longestGap = 0;
-        bool solenoidOverride = (count%2)?true:false;
-        if (chimeArray[count].SoundEffectNum==soundEffectNum) {
-          RPU_PushToTimedSolenoidStack(chimeArray[count].SolNumber, 3, NextSoundEffectTime + soundGapUL*((unsigned long)chimeArray[count].TimeOffset), solenoidOverride);
-          if (chimeArray[count].TimeOffset > longestGap) longestGap = chimeArray[count].TimeOffset;
-        }
-        NextSoundEffectTime = CurrentTime + ((unsigned long)longestGap)*soundGapUL;
-      }
-    }
-  }
-  
-
-#endif
-
-}*/
-
+//===========================================================
+// Chime Loader
+//===========================================================
 #ifdef USE_CHIMES
   // If the user selects electronic sounds, don't do chimes
   if (!GameReady) return;
@@ -1676,12 +1476,11 @@ void PlaySoundEffect(byte soundEffectNum) {
     }
   }
   NextSoundEffectTime += (3 + (unsigned long)longestGap)*soundGapUL;  
-#endif 
-  
+#endif   
 }
 
 
-
+//================================================================
 void AddCredit(boolean playSound = false, byte numToAdd = 1) {
   if (Credits < MaximumCredits) {
     Credits += numToAdd;
@@ -1698,7 +1497,6 @@ void AddCredit(boolean playSound = false, byte numToAdd = 1) {
 }
 
 
-
 ////////////////////////////////////////////////////////////////////////////
 //
 //  Attract Mode
@@ -1712,11 +1510,8 @@ byte AttractLastLadderBonus = 0;
 unsigned long AttractLastStarTime = 0;
 byte AttractLastHeadMode = 255;
 byte AttractLastPlayfieldMode = 255;
-byte InAttractMode = false;
-
 unsigned long SaucerLastKickTime = 0;  // === Safety timer for the top saucer ball eject ===
 unsigned long LastSaucerScoreTime = 0; // === Tracks the last valid saucer hit for debounce ===
-
 boolean StartButtonWasHeld = false;    // Tracks start button state
 
 
@@ -1738,10 +1533,24 @@ int RunAttractMode(int curState, boolean curStateChanged) {
     AttractLastPlayfieldMode = 0;
   }
 
-// Alternate displays between high score and blank
-if ((CurrentTime / 10000) % 2 == 0) {
+// Attract Sound - once every 5 minutes - uncomment to activate
+//static unsigned long lastPlayerUpSound = 0;
+//if (CurrentTime - lastPlayerUpSound >= 300000) {  // 5 minutes = 300,000 ms
+//  lastPlayerUpSound = CurrentTime;
+//  PlaySoundEffect(SOUND_EFFECT_ADD_PLAYER);
+//}
 
-  // Always assert the lamps while we are in this phase
+//==================================================
+// Attract head display logic
+//==================================================
+boolean showHighScore = false;
+
+if (CurrentTime >= 6000) {
+  showHighScore = ((CurrentTime - 6000) % 20000) < 10000;
+}
+
+if (showHighScore) {
+  // High Score phase
   RPU_SetLampState(HIGH_SCORE_TO_DATE, 1, 0, 250);
   RPU_SetLampState(GAME_OVER, 0);
   SetPlayerLamps(0);
@@ -1749,38 +1558,33 @@ if ((CurrentTime / 10000) % 2 == 0) {
   if (AttractLastHeadMode != 1) {
     RPU_SetDisplayCredits(Credits, true);
     RPU_SetDisplayBallInPlay(0, true);
+    AttractLastHeadMode = 1;
   }
-  AttractLastHeadMode = 1;
-  
-  if (CurrentTime > 20000) ShowPlayerScores(0xFF, false, false, HighScore);
-  else ShowPlayerScores(0xFF, false, false);
+
+  ShowPlayerScores(0xFF, false, false, HighScore);
 
 } else {
-  // Always assert the lamps while we are in this phase
+  // Current scores phase (initial 6 s + later 10 s windows)
   RPU_SetLampState(HIGH_SCORE_TO_DATE, 0);
   RPU_SetLampState(GAME_OVER, 1);
+  SetPlayerLamps(((CurrentTime / 250) % 4) + 1);
 
   if (AttractLastHeadMode != 2) {
-    if (ResetScoresToClearVersion == true && CurrentTime > 20000) {
-      for (int count = 0; count < 4; count++) {
-        CurrentScores[count] = 0;
-      }
+    if (ResetScoresToClearVersion) {
+      for (byte count = 0; count < 4; count++) CurrentScores[count] = 0;
       CurrentNumPlayers = 0;
       ResetScoresToClearVersion = false;
     }
     RPU_SetDisplayCredits(Credits, true);
     RPU_SetDisplayBallInPlay(0, true);
+    AttractLastHeadMode = 2;
   }
 
   ShowPlayerScores(0xFF, false, false);
-  SetPlayerLamps(((CurrentTime / 250) % 4) + 1);
-  AttractLastHeadMode = 2;
 }
 
-
-
   // ==========================================================================
-  // 2. CUSTOM PLAYFIELD LAMP ANIMATION STACKS
+  // 2. PLAYFIELD LAMP ANIMATION STACKS
   // ==========================================================================
   if ((CurrentTime / 10000) % 2 == 0) {
     // --- STAGE 1: VERTICAL SWEEP (Geometry-Aligned Vertical Wave) ---
@@ -1928,9 +1732,6 @@ if ((CurrentTime / 10000) % 2 == 0) {
 
   return returnState;
 }
-
-
-
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -2088,8 +1889,6 @@ int InitNewBall(bool curStateChanged, byte playerNum, int ballNum) {
     GameModeStartTime = CurrentTime;
     GameModeEndTime = 0;
     LastModeShotTime = 0;
-    BallSaveShown = false;
-    ProspectiveModeShown = 0;
     ABLaneState = 0x11;
     ABMaxedOut[CurrentPlayer] = false;
     leftBumperLit = false;  // Reset to unlit
@@ -2099,7 +1898,7 @@ int InitNewBall(bool curStateChanged, byte playerNum, int ballNum) {
     LastTargetScoresSpecial = false;
     
     // Start appropriate mode music
-    //PlaySoundEffect(SOUND_EFFECT_PLAYER_UP);
+    PlaySoundEffect(SOUND_EFFECT_PLAYER_UP);
 
     if (RPU_ReadSingleSwitchState(SW_OUTHOLE)) {
       RPU_PushToTimedSolenoidStack(SOL_OUTHOLE, 4, CurrentTime + 100);
@@ -2184,7 +1983,7 @@ int ManageGameMode() {
     case GAME_MODE_QUALIFY_SELECT:
       // --- FLOW DEFINITION: Triggered ONLY after the 5th mode completes ---
       if (ModeCompletionStatus[CurrentPlayer] == 0x1F) {
-        ProspectiveGameMode = GAME_MODE_WIZARD; // Locks the preview pointer to Wizard!
+        ProspectiveGameMode = GAME_MODE_WIZARD; // Sets the preview pointer to Wizard!
         
       }
       // To get from qualify to select, the player has to hit both A&B within 10 seconds
@@ -2234,6 +2033,7 @@ int ManageGameMode() {
 
         if (ABLaneGoal[CurrentPlayer]<=(NUM_ORBITS_IN_AB_GOAL/2)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_AB_LANES;
+          PlaySoundEffect(SOUND_EFFECT_ADD_CREDIT);
           CurrentScores[CurrentPlayer] += 5000;
         }
          else if (CurrentTime > GameModeEndTime) {
@@ -2270,6 +2070,7 @@ int ManageGameMode() {
 
         if (LeftTargetGoal[CurrentPlayer]<=(NUM_LEFT_TARGETS_GOAL/2)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_LEFT_DROPS;
+          PlaySoundEffect(SOUND_EFFECT_ADD_CREDIT);
           CurrentScores[CurrentPlayer] += 5000;
         }
         else if (CurrentTime > GameModeEndTime) {
@@ -2310,6 +2111,7 @@ int ManageGameMode() {
         GameMode = GAME_MODE_QUALIFY_SELECT;
         if (RightTargetGoal[CurrentPlayer]<=(NUM_RIGHT_TARGETS_GOAL/2)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_RIGHT_DROPS;
+          PlaySoundEffect(SOUND_EFFECT_ADD_CREDIT);
           CurrentScores[CurrentPlayer] += 5000;
         }
         else if (CurrentTime > GameModeEndTime) {
@@ -2349,6 +2151,8 @@ int ManageGameMode() {
         GameMode = GAME_MODE_QUALIFY_SELECT;
         if (PopBumperGoal[CurrentPlayer]==0) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_POP_BUMPERS;
+          PlaySoundEffect(SOUND_EFFECT_ADD_CREDIT);
+          CurrentScores[CurrentPlayer] += 5000;
         }
         else if (CurrentTime > GameModeEndTime) {
           PlaySoundEffect(SOUND_EFFECT_TIMEOUT); // Fires the timeout failure chime
@@ -2383,6 +2187,8 @@ int ManageGameMode() {
 
         if (SlingsAndLanesGoal[CurrentPlayer]<=(NUM_SLINGS_AND_INLANES/2)) {
           ModeCompletionStatus[CurrentPlayer] |= MODE_STATUS_BIT_SLINGS_AND_LANES;
+          PlaySoundEffect(SOUND_EFFECT_ADD_CREDIT);
+          CurrentScores[CurrentPlayer] += 5000;
         }
         else if (CurrentTime > GameModeEndTime) {
           PlaySoundEffect(SOUND_EFFECT_TIMEOUT); // Fires the timeout failure chime
@@ -2415,7 +2221,7 @@ int ManageGameMode() {
             OverrideScoreDisplay(i, secondsLeft, false);
           }
         }
-        // Every 1 second (1000ms), flash your pacing chime to pressure the player
+        // Every 1 second (1000ms) pacing chime 
         if (secondsLeft != lastSecondChecked) {
           if (secondsLeft < WizardModeTimeLimit-3) {
             PlaySoundEffect(SOUND_EFFECT_WIZARD_TIMER);
@@ -2437,16 +2243,14 @@ int ManageGameMode() {
         RightTargetGoal[CurrentPlayer]    = NUM_RIGHT_TARGETS_GOAL;
 
         // Reset drop states, orbital history, and lane memories
-        LeftDropTargetStatus  = 0;
-        RightDropTargetStatus = 0;
-        LastAHit = 0;
-        LastBHit = 0;
+ //       LastAHit = 0;
+ //       LastBHit = 0;
 
         // Drop the cabinet cleanly back down to standard baseline operations
         ShowPlayerScores(0xFF, false, false); 
         GameMode = GAME_MODE_QUALIFY_SELECT;
         MachineState = MACHINE_STATE_NORMAL_GAMEPLAY;
-        PlaySoundEffect(SOUND_EFFECT_TIMEOUT);  
+        PlaySoundEffect(SOUND_EFFECT_TIMEOUT);
       }
     break;
   }
@@ -3046,7 +2850,7 @@ void WizardSwitchHit() {
   PlaySoundEffect(SOUND_EFFECT_WIZARD_SCORE);
 }
 
-
+//============================================================
 int RunGamePlayMode(int curState, boolean curStateChanged) {
   int returnState = curState;
 //  byte bonusAtTop = Bonus;
@@ -3298,7 +3102,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
 
           // Mark this as a valid, scored hit
           LastSaucerScoreTime = CurrentTime;
-          if (GameMode==GAME_MODE_SKILL_SHOT) {
+          if (GameMode==GAME_MODE_SKILL_SHOT &&  SkillShotRunning == true) {
             PlaySoundEffect(SOUND_EFFECT_SKILL_SHOT);
             CurrentScores[CurrentPlayer] += (SkillShotAwardsLevel != 0) * 10000;
             RPU_PushToTimedSolenoidStack(SOL_SAUCER, 5, CurrentTime + 1000); 
@@ -3314,11 +3118,11 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
               Serial.write("Generic Saucer hit\n\r");
             }
 */            
-            if        (BonusXPotential == 1) BonusX = 1; // Base 1X scoring
+            if (BonusXPotential == 1) BonusX = 1; // Base 1X scoring
               else if (BonusXPotential == 2) BonusX = 2; // Upgrades to 2X
               else if (BonusXPotential == 3) BonusX = 3; // Upgrades to 3X
               else if (BonusXPotential == 5) BonusX = 5; // Upgrades and locks at 5X
-            if        (BonusXPotential == 1) BonusXPotential = 2;
+            if (BonusXPotential == 1) BonusXPotential = 2;
               else if (BonusXPotential == 2) BonusXPotential = 3;
               else if (BonusXPotential == 3) BonusXPotential = 5;
               else                           BonusXPotential = 5;

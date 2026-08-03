@@ -1,3 +1,5 @@
+3AUG2026: Fixed bug in slings mode (playfield X lights not flashing); Narrowed SKILLSHOT window to only when indicated.
+
 2AUG2026: Fixed scrolling high score in attract mode.
 
 31JUL2026: Moved mode countdowns to credit window to not obscure scores. Wizard shows countdown on three that are not active player.

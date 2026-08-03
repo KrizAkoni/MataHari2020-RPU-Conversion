@@ -1,5 +1,12 @@
 /**************************************************************************
- *     This file is part of MataHari2020.
+    =======================================================================
+    MataHari2026 V1.0 13JUL2026
+    Updated by John Kriz (KrizAkoni@gmail.com) to new RPU code base.
+    Introduced baseline game behaviors with improved MataHAri2020 mode
+    overlays.   
+    =======================================================================
+ 
+    This file is part of MataHari2020.
     I, Dick Hamill, the author of this program disclaim all copyright
     in order to make this program freely available in perpetuity to
     anyone who would like to use it. Dick Hamill, 6/1/2020

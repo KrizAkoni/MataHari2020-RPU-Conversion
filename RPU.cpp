@@ -1,5 +1,11 @@
 /**************************************************************************
-       This file is part of the RPU for Arduino Project.
+    =======================================================================
+    V5.14 3AUG2026
+    Updated by John Kriz (KrizAkoni@gmail.com)
+    Fixed Dual Boot for REV 3 boards.   
+    =======================================================================
+    
+    This file is part of the RPU for Arduino Project.
 
     I, Dick Hamill, the author of this program disclaim all copyright
     in order to make this program freely available in perpetuity to
@@ -4755,9 +4761,6 @@ void RPU_Update(unsigned long currentTime) {
 #endif
 
 }
-
-
-
 
 
 // This function should eventually support auto-detect and initialize the appropriate
