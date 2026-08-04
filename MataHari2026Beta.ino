@@ -294,7 +294,7 @@ void DecodeDIPSwitchParameters() {
   // GameMelodyMinimal = (dipBank0&0x80)?false:true;
  
   BallsPerGame = (dipBank1 & 0x80) ? 5 : 3;
-  HighScoreReplay = (dipBank1&0x20)?true:false;
+  HighScoreReplay = (dipBank1&0x20)?true:false; // DIP 6
   MaximumCredits = (dipBank2&0x07)*5 + 5;
   CreditDisplay = (dipBank2&0x08)?true:false;
   MatchFeature = (dipBank2&0x10)?true:false;
@@ -2588,23 +2588,38 @@ void AddABLaneScore() {
       }
         
     break;
-    case 6: // Extra Ball lamp
-      SamePlayerShootsAgain = true;
-      PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
-    break;
-    case 7: // Special lamp
-      AddCredit(true, 1);
-      RPU_PushToTimedSolenoidStack(SOL_KNOCKER, 3, CurrentTime, true);
-      PlaySoundEffect(SOUND_EFFECT_ADD_CREDIT);
-      ABMaxedOut[CurrentPlayer] = true; // Mark that this player completed the ladder!
-      ABLaneState = 0x55;
 
+    case 6: // Extra Ball lamp
+        if (TournamentScoring) {
+          // TOURNAMENT MODE ACTIVE: Converts the Extra Ball into ExtraBallValue setting points
+          CurrentScores[CurrentPlayer] += ExtraBallValue;
+          PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
+        } else {
+        // CASUAL MODE ACTIVE: Collect Special Reward (Loud knocker coil fire and free game credit)
+          SamePlayerShootsAgain = true;
+          PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
+        }
     break;
+
+    case 7: // Special lamp
+        if (TournamentScoring) {
+          // TOURNAMENT MODE ACTIVE: Converts the Extra Ball into ExtraBallValue setting points
+          CurrentScores[CurrentPlayer] += ExtraBallValue;
+          PlaySoundEffect(SOUND_EFFECT_ADD_CREDIT);
+          ABLaneState = 0x55;
+        } else {    
+          AddCredit(true, 1);
+          RPU_PushToTimedSolenoidStack(SOL_KNOCKER, 3, CurrentTime, true);
+          PlaySoundEffect(SOUND_EFFECT_ADD_CREDIT);
+          ABMaxedOut[CurrentPlayer] = true; // Mark that this player completed the ladder!
+          ABLaneState = 0x55;
+        }
+    break;
+
     default:
       CurrentScores[CurrentPlayer] += 500; // Safety fallback
       PlaySoundEffect(SOUND_EFFECT_AB_LANE_1);
-
-       ABLaneState = 0x55;
+      ABLaneState = 0x55;
   }
 }
 
