@@ -1,3 +1,5 @@
+4AUG2026: There is a bug with Tournament mode not processing correctly (being ignored). 
+
 3AUG2026: Fixed bug in slings mode (playfield X lights not flashing); Narrowed SKILLSHOT window to only when indicated. Completed 1st run documentation.
 
 2AUG2026: Fixed scrolling high score in attract mode.
