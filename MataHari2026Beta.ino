@@ -290,11 +290,12 @@ void GetDIPSwitches() {
 }
 
 void DecodeDIPSwitchParameters() {
-  // ScoreAwardReplay = (dipBank0&0x20) ? 7 : 0;
+  ScoreAwardReplay = (dipBank3&0x80) ? 7 : 0; // DIP 32 In Mata Hari is for REPLAY vs EB for passing each of three score levels.
+
   // GameMelodyMinimal = (dipBank0&0x80)?false:true;
  
   BallsPerGame = (dipBank1 & 0x80) ? 5 : 3;
-  HighScoreReplay = (dipBank1&0x20)?true:false; // DIP 6
+  HighScoreReplay = (dipBank1&0x20)?true:false; // DIP 6 Currently not adjustable in software settings. 
   MaximumCredits = (dipBank2&0x07)*5 + 5;
   CreditDisplay = (dipBank2&0x08)?true:false;
   MatchFeature = (dipBank2&0x10)?true:false;
