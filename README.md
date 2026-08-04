@@ -1,4 +1,4 @@
-4AUG2026: WIZARD MODE CURRENTLY BROKEN in anything but 30 seconds; There is also a bug with Tournament mode being ignored for AB loops. Tournament mode for drops is fixed. Restored full goal values.  
+4AUG2026: There is a bug with Tournament mode being ignored for AB loops. Tournament mode for drops is fixed. Restored full goal values.  
 
 3AUG2026: Fixed bug in slings mode (playfield X lights not flashing); Narrowed SKILLSHOT window to only when indicated. Completed 1st run documentation.
 

@@ -174,11 +174,11 @@ boolean MachineStateChanged = true;
 
 #define MODE_LENGTH_IN_SECONDS          30
 #define AB_TIME_TO_QUALIFY_MODE         10
-#define NUM_ORBITS_IN_AB_GOAL           5 //5
-#define NUM_POP_BUMPERS_HIT_GOAL        20 //20
-#define NUM_LEFT_TARGETS_GOAL           8 //8
-#define NUM_RIGHT_TARGETS_GOAL          8 //8
-#define NUM_SLINGS_AND_INLANES          15 //15
+#define NUM_ORBITS_IN_AB_GOAL           1 //5
+#define NUM_POP_BUMPERS_HIT_GOAL        1 //20
+#define NUM_LEFT_TARGETS_GOAL           1 //8
+#define NUM_RIGHT_TARGETS_GOAL          1 //8
+#define NUM_SLINGS_AND_INLANES          1 //15
 
 
 /*********************************************************************
@@ -2208,8 +2208,8 @@ int ManageGameMode() {
     static long lastSecondChecked;
       if (GameModeEndTime == 0) {
         // 1. INITIALIZATION: Runs once when WIZARD Mode begins
-        // Scales your service menu setting variable (WizardModeTimeLimit) to milliseconds
-        GameModeEndTime = CurrentTime + (1000 * WizardModeTimeLimit);
+        // Scales your service menu setting variable (WizardModeTimeLimit) to milliseconds and assigns unsigned long to prevent overflow
+        GameModeEndTime = CurrentTime + (1000UL * WizardModeTimeLimit);
         
         MachineState = MACHINE_STATE_WIZARD_MODE; 
         PlaySoundEffect(SOUND_EFFECT_MACHINE_START); // NEED TO MAKE A SPECIAL SOUND FOR THIS
