@@ -174,11 +174,11 @@ boolean MachineStateChanged = true;
 
 #define MODE_LENGTH_IN_SECONDS          30
 #define AB_TIME_TO_QUALIFY_MODE         10
-#define NUM_ORBITS_IN_AB_GOAL           2 //5
-#define NUM_POP_BUMPERS_HIT_GOAL        2 //20
-#define NUM_LEFT_TARGETS_GOAL           2 //8
-#define NUM_RIGHT_TARGETS_GOAL          2 //8
-#define NUM_SLINGS_AND_INLANES          2 //15
+#define NUM_ORBITS_IN_AB_GOAL           5 //5
+#define NUM_POP_BUMPERS_HIT_GOAL        20 //20
+#define NUM_LEFT_TARGETS_GOAL           8 //8
+#define NUM_RIGHT_TARGETS_GOAL          8 //8
+#define NUM_SLINGS_AND_INLANES          15 //15
 
 
 /*********************************************************************
@@ -440,11 +440,15 @@ void SetPlayerLamps(byte numPlayers, byte playerOffset = 0, int flashPeriod = 0)
 
 //================================================================
 void ShowDropTargetSpecialLamp(byte mode, boolean isSpecialLit) {
-  // RULE: The Special lamp should ONLY be active during QUALIFY_SELECT mode
-  if (mode == GAME_MODE_QUALIFY_SELECT && isSpecialLit) {
-    RPU_SetLampState(LAST_TARGET_SCORES_SPECIAL, 1); // True matching lamp constant
+// Enable LAST_TARGET_SCORES_SPECIAL only during modes that can score full drops. 
+  if ((mode == GAME_MODE_QUALIFY_SELECT ||
+       mode == GAME_MODE_SELECT_MODE ||
+       mode == GAME_MODE_AB_LANES ||
+       mode == GAME_MODE_POP_BUMPERS ||
+       mode == GAME_MODE_SLINGS_AND_LANES) && isSpecialLit) {
+    RPU_SetLampState(LAST_TARGET_SCORES_SPECIAL, 1);
   } else {
-    RPU_SetLampState(LAST_TARGET_SCORES_SPECIAL, 0); // Force OFF during other modes or if unlit
+    RPU_SetLampState(LAST_TARGET_SCORES_SPECIAL, 0);
   }
 }
 
@@ -2709,7 +2713,7 @@ void HandleLeftDropTargetHit(byte switchHit) {
         soundPlayed = true; // Blocks basic target chimes from repeating
         
         if (Full8DropsSweptCount == 1) {
-          // 1st Complete Sweep: Award 50,000 points and prime Special light rule
+          // 1st Complete Sweep: Award 50,000 points and set Special light
           CurrentScores[CurrentPlayer] += 50000;
           PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
           LastTargetScoresSpecial = true; 
@@ -2717,8 +2721,9 @@ void HandleLeftDropTargetHit(byte switchHit) {
         else if (Full8DropsSweptCount == 2) {
           // 2nd+ Complete Sweep: Check for Tournament Constraints
           if (TournamentScoring) {
-            // TOURNAMENT MODE ACTIVE: Converts the Special reward into an additional 50,000 points
-            CurrentScores[CurrentPlayer] += 50000;
+            // TOURNAMENT MODE ACTIVE: Converts the Special reward into SpecialValue setting points
+            //CurrentScores[CurrentPlayer] += 50000;
+            CurrentScores[CurrentPlayer] += SpecialValue;
             PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
           } else {
             // CASUAL MODE ACTIVE: Collect Special Reward (Loud knocker coil fire and free game credit)
@@ -2801,7 +2806,7 @@ void HandleRightDropTargetHit(byte switchHit) {
         soundPlayed = true; // Blocks basic target chimes from repeating
         
         if (Full8DropsSweptCount == 1) {
-          // 1st Complete Sweep: Award 50,000 points and prime Special light rule
+          // 1st Complete Sweep: Award 50,000 points and set Special light
           CurrentScores[CurrentPlayer] += 50000;
           PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
           LastTargetScoresSpecial = true; 
@@ -2809,8 +2814,9 @@ void HandleRightDropTargetHit(byte switchHit) {
         else if (Full8DropsSweptCount == 2) {
           // 2nd Complete Sweep: Check for Tournament Constraints
           if (TournamentScoring) {
-            // TOURNAMENT MODE ACTIVE: Converts the Special reward into an additional 50,000 points
-            CurrentScores[CurrentPlayer] += 50000;
+            // TOURNAMENT MODE ACTIVE: Converts the Special reward into SpecialValue setting points
+            //CurrentScores[CurrentPlayer] += 50000;
+            CurrentScores[CurrentPlayer] += SpecialValue;
             PlaySoundEffect(SOUND_EFFECT_EXTRA_BALL);
           } else {
             // CASUAL MODE ACTIVE: Collect Special Reward (Loud knocker coil fire and free game credit)
