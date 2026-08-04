@@ -174,11 +174,11 @@ boolean MachineStateChanged = true;
 
 #define MODE_LENGTH_IN_SECONDS          30
 #define AB_TIME_TO_QUALIFY_MODE         10
-#define NUM_ORBITS_IN_AB_GOAL           1 //5
-#define NUM_POP_BUMPERS_HIT_GOAL        1 //20
-#define NUM_LEFT_TARGETS_GOAL           1 //8
-#define NUM_RIGHT_TARGETS_GOAL          1 //8
-#define NUM_SLINGS_AND_INLANES          1 //15
+#define NUM_ORBITS_IN_AB_GOAL           5 //5
+#define NUM_POP_BUMPERS_HIT_GOAL        20 //20
+#define NUM_LEFT_TARGETS_GOAL           8 //8
+#define NUM_RIGHT_TARGETS_GOAL          8 //8
+#define NUM_SLINGS_AND_INLANES          15 //15
 
 
 /*********************************************************************
@@ -2708,7 +2708,7 @@ void HandleLeftDropTargetHit(byte switchHit) {
       } else {
 
  // --- 8-TARGET SWEEP REWARDS FOR NORMAL PLAY (LEFT SIDE) ---
-      if (GameMode != GAME_MODE_LEFT_DROP_TARGETS && GameMode != GAME_MODE_RIGHT_DROP_TARGETS) {
+      if (GameMode != GAME_MODE_LEFT_DROP_TARGETS && GameMode != GAME_MODE_RIGHT_DROP_TARGETS && GameMode != GAME_MODE_WIZARD) {
         Full8DropsSweptCount += 1;
         soundPlayed = true; // Blocks basic target chimes from repeating
         
@@ -2801,7 +2801,7 @@ void HandleRightDropTargetHit(byte switchHit) {
       } else {
 
 // --- 8-TARGET SWEEP REWARDS FOR NORMAL PLAY (RIGHT SIDE) ---
-      if (GameMode != GAME_MODE_LEFT_DROP_TARGETS && GameMode != GAME_MODE_RIGHT_DROP_TARGETS) {
+      if (GameMode != GAME_MODE_LEFT_DROP_TARGETS && GameMode != GAME_MODE_RIGHT_DROP_TARGETS && GameMode != GAME_MODE_WIZARD) {
         Full8DropsSweptCount += 1;
         soundPlayed = true; // Blocks basic target chimes from repeating
         
@@ -3147,7 +3147,7 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           HandleLeftDropTargetHit(switchHit);
           if (BallFirstSwitchHitTime == 0) BallFirstSwitchHitTime = CurrentTime;
           if (GameMode == GAME_MODE_WIZARD) CurrentScores[CurrentPlayer] += WizardSwitchReward;
-          if (GameMode==GAME_MODE_LEFT_DROP_TARGETS && LeftTargetGoal[CurrentPlayer]) {
+          if (GameMode == GAME_MODE_LEFT_DROP_TARGETS && LeftTargetGoal[CurrentPlayer]) {
             LeftTargetGoal[CurrentPlayer] -= 1;
             LastModeShotTime = CurrentTime;
             AddToBonus(1);
