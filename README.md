@@ -1,3 +1,17 @@
+## 🚀 Installation & Setup (Stable Build)
+
+To ensure you are using a stable version of **MataHari2026Beta** while development continues on the main branch, follow these steps:
+
+1. Go to the [Releases](https://github.com) section on the right side of this repository page.
+2. Download the `Source code (zip)` file from the latest stable release.
+3. Open your **Arduino IDE**.
+4. Navigate to **Sketch** > **Include Library** > **Add .ZIP Library...**
+5. Select the downloaded `.zip` file.
+6. The project/library is now installed! You can access the code under **File** > **Examples** (if configured as a library) or open the main `.ino` sketch file directly.
+
+*Note: If you download the repository using the green "Code -> Download ZIP" button on the main page, you may get unstable or unfinished development code.*
+
+
 4AUG2026: Fixed a bug with Tournament mode being ignored for AB loops. Tournament mode for drops is fixed. Restored full goal values. Fixed wizard mode timer
           Enabled DIP 32 read for Award Score Override software adjustment. Highest score award currently tied to DIP 6 only.   
 
