@@ -9,8 +9,10 @@ To ensure you are using a stable version of **MataHari2026Beta** while developme
 5. Select the downloaded `.zip` file.
 6. The project/library is now installed! You can access the code under **File** > **Examples** (if configured as a library) or open the main `.ino` sketch file directly.
 
-*Note: If you download the repository using the green "Code -> Download ZIP" button on the main page, you may get unstable or unfinished development code.*
+*Note: If you download the repository using the green "Code -> Download ZIP" button on the main page, you may get unstable or unfinished development code.* Latest bug fixes below:
 
+
+5AUG2026: Fixed a bug causing pop-bumpers to rescale mode timer. 
 
 4AUG2026: Fixed a bug with Tournament mode being ignored for AB loops. Tournament mode for drops is fixed. Restored full goal values. Fixed wizard mode timer
           Enabled DIP 32 read for Award Score Override software adjustment. Highest score award currently tied to DIP 6 only.   

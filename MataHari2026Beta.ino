@@ -3192,7 +3192,6 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           PopBumperPhase += 1;
           if ((PopBumperPhase % 4) == 0) {
             ProspectiveGameMode = GetNextUnfinishedMode(ProspectiveGameMode);
-            GameModeStartTime = CurrentTime;
           }
 
           // 1. SCORING GATEWAY
@@ -3231,7 +3230,6 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           PopBumperPhase += 1;
           if ((PopBumperPhase % 4) == 0) {
             ProspectiveGameMode = GetNextUnfinishedMode(ProspectiveGameMode);
-            GameModeStartTime = CurrentTime;
           }
 
           // 1. SCORING GATEWAY
@@ -3272,8 +3270,6 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
           LastPopBumperHit = CurrentTime;
           PopBumperPhase += 1;
           if ((PopBumperPhase%4)==0) {
-            ProspectiveGameMode = GetNextUnfinishedMode(ProspectiveGameMode);
-            GameModeStartTime = CurrentTime;
           }
           if (GameMode != GAME_MODE_WIZARD) {
             CurrentScores[CurrentPlayer] += 100;
