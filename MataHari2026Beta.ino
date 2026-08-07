@@ -3096,8 +3096,8 @@ int RunGamePlayMode(int curState, boolean curStateChanged) {
 
 
         case SW_SAUCER:
-          // DEBOUNCE GUARD: Ignore the hit if it occurs within 0.4 second of the last scored hit
-          if ((CurrentTime - LastSaucerScoreTime) < 400) {
+          // DEBOUNCE GUARD: Ignore the hit if it occurs within 2 second of the last scored hit
+          if ((CurrentTime - LastSaucerScoreTime) < 2000) {
             break; // Exit the case immediately without scoring, playing sounds, or adding bonus
           }
           LastSaucerScoreTime = CurrentTime;
